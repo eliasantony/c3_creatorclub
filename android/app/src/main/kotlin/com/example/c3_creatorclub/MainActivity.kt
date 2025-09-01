@@ -1,4 +1,4 @@
-package com.example.c3_creatorclub
+package com.c3.creatorclub
 
 import io.flutter.embedding.android.FlutterActivity
 
