@@ -1,0 +1,77 @@
+.DS_Store
+
+# Flutter & Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+.pub-cache/
+build/
+coverage/
+
+# Generated (web)
+lib/generated_plugin_registrant.dart
+
+# IDEs & Editors
+.idea/
+*.iml
+.vscode/
+*.swp
+*.lock
+
+# Android
+android/.gradle/
+android/captures/
+android/**/.cxx/
+android/**/local.properties
+android/**/build/
+
+# iOS
+ios/Flutter/.last_build_id
+ios/Flutter/ephemeral/
+ios/.symlinks/
+ios/Pods/
+ios/Runner.xcworkspace/
+ios/**/DerivedData/
+ios/**/xcuserdata/
+ios/**/*.moved-aside
+ios/**/*.xcuserstate
+ios/**/*.xccheckout
+ios/**/*.xcscmblueprint
+
+# macOS
+macos/Flutter/ephemeral/
+macos/.symlinks/
+macos/Pods/
+macos/Runner.xcworkspace/
+macos/**/DerivedData/
+macos/**/xcuserdata/
+
+# Linux (CMake artifacts)
+linux/flutter/ephemeral/
+linux/**/CMakeFiles/
+linux/**/CMakeCache.txt
+linux/**/cmake_install.cmake
+linux/**/Makefile
+linux/**/generated_plugins.cmake
+
+# Windows (CMake artifacts)
+windows/flutter/ephemeral/
+windows/**/CMakeFiles/
+windows/**/CMakeCache.txt
+windows/**/cmake_install.cmake
+windows/**/Makefile
+windows/**/GeneratedFiles/
+windows/**/generated_plugins.cmake
+
+# Web
+web/.dart_tool/
+web/build/
+
+# Fastlane (if used)
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+.DS_Store
