@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "385391631548",
+    "project_id": "c3club-app",
+    "storage_bucket": "c3club-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:385391631548:android:f2a879f8e80f2badfd84b9",
+        "android_client_info": {
+          "package_name": "com.c3.creatorclub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCw8wzuHeEH1hUZ1-DBYGhsTaWXwbh4kt4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:385391631548:android:daf68a69252ca812fd84b9",
+        "android_client_info": {
+          "package_name": "com.example.c3_creatorclub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCw8wzuHeEH1hUZ1-DBYGhsTaWXwbh4kt4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
