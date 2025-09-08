@@ -3,6 +3,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() { return request.auth != null; }
     function isAdmin() { return isSignedIn() && request.auth.token.admin == true; }
+    function isSelf(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function userDoc(uid) { return get(/databases/$(database)/documents/users/$(uid)); }
+    function isPremium() {
+      return isSignedIn() && userDoc(request.auth.uid).data.membershipTier == 'premium';
+    }
 
     // Rooms: public read for browsing, writes limited to admins only
     match /rooms/{roomId} {
@@ -12,9 +17,65 @@ service cloud.firestore {
 
     // Users: each user can read/write their own profile document
     match /users/{userId} {
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow read: if isSignedIn() && request.auth.uid == userId;
-      allow update, delete: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSelf(userId);
+      allow read: if isSelf(userId) || isAdmin();
+      allow update, delete: if isSelf(userId) || isAdmin();
+    }
+
+    // Memberships: managed by server (Functions); users can read own
+    match /memberships/{userId} {
+      allow read: if isSelf(userId) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Bookings: server-managed; users can read bookings they own
+    match /bookings/{bookingId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Room slots: Functions only (prevent client-side slot manipulation)
+    match /roomSlots/{roomId}/{yyyymmdd}/{slotId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Groups: chat groups metadata
+    match /groups/{groupId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() || (isSignedIn() && request.resource.data.type == 'private' && request.resource.data.ownerId == request.auth.uid);
+      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.ownerId == request.auth.uid);
+
+      // Group members subcollection (optional, for future unread/muted)
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        // Owner/admin can manage members; user can update their own member doc (e.g., muted)
+        function isGroupOwner() {
+          return get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid;
+        }
+        allow create, update, delete: if isAdmin() || (isSignedIn() && (isGroupOwner() || memberId == request.auth.uid));
+      }
+
+      // Messages: Premium members only for create; self-delete allowed; admins manage all
+      match /messages/{messageId} {
+        allow read: if isSignedIn();
+        allow create: if isPremium();
+        // Prevent edits; allow delete by author or admin
+        allow update: if false;
+        allow delete: if isAdmin() || (isSignedIn() && resource.data.senderId == request.auth.uid);
+      }
+    }
+
+    // Reports: any signed-in user can create; only admins can read/update
+    match /reports/{reportId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Announcements: readable by anyone; only admins write
+    match /announcements/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // Default deny for everything else until explicitly opened

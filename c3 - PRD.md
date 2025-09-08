@@ -182,7 +182,7 @@ c3 \- Creator Club is a **subscription-based mobile app** that allows freelancer
 ### Chat (Premium)
 
 - **Backend:** Firestore subcollections (`groups/{id}/messages/{messageId}`)
-- **UI:** `flutter_chat_ui` (Flyer Chat) or `dash_chat_2`
+- **UI:** `flutter_chat_ui` (Flyer Chat)
 - **Features:** text \+ image uploads, pagination, mentions
 - **Moderation:** Cloud Functions handle reports, auto-hide on thresholds
 - **Unread tracking:** `members/{uid}` subcollection with `lastReadAt`

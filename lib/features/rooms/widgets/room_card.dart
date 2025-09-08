@@ -124,7 +124,7 @@ class RoomCard extends StatelessWidget {
                   if (visibleFacilities.isNotEmpty) ...[
                     Wrap(
                       spacing: 8,
-                      runSpacing: -8,
+                      runSpacing: 8,
                       children: [
                         for (final f in visibleFacilities)
                           Chip(
@@ -132,7 +132,7 @@ class RoomCard extends StatelessWidget {
                             visualDensity: VisualDensity.compact,
                             materialTapTargetSize:
                                 MaterialTapTargetSize.shrinkWrap,
-                            padding: EdgeInsets.zero,
+                            padding: EdgeInsets.all(4),
                           ),
                         if (remaining > 0)
                           ActionChip(

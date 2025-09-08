@@ -10,12 +10,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:c3_creatorclub/app.dart';
 
 void main() {
-  testWidgets('App boots and shows Sign In when unauthenticated', (
-    tester,
-  ) async {
+  testWidgets('App boots and shows Auth when unauthenticated', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: C3App()));
     await tester.pumpAndSettle();
-
-    expect(find.text('Sign In'), findsOneWidget);
+    // New combined auth screen defaults to Sign up flow
+    expect(find.text('Create your account'), findsOneWidget);
+    expect(find.text('Already have an account? Login.'), findsOneWidget);
   });
 }

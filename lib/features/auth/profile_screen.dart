@@ -538,7 +538,7 @@ class _Skeleton extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: scheme.surfaceVariant.withValues(alpha: 0.6),
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
         borderRadius: borderRadius ?? BorderRadius.circular(6),
       ),
     );

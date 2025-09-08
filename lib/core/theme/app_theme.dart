@@ -85,6 +85,7 @@ class AppTheme {
       // Align neutral surfaces to your spec:
       surface: isDark ? AppColors.darkGray : AppColors.white,
       primary: AppColors.primary,
+      onPrimary: AppColors.white,
     ).copyWith(onSurface: isDark ? AppColors.white : AppColors.darkGray);
 
     final tokens = AppTokens.defaults;

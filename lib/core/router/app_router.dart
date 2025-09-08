@@ -3,13 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../main.dart' show FirebaseCheckScreen; // reuse existing screen
 import '../../data/repositories/auth_repository.dart';
-import '../../features/auth/sign_in_screen.dart';
 import '../../features/auth/profile_screen.dart';
-import '../../features/auth/register_screen.dart';
+import '../../features/auth/auth_screen.dart';
+import '../../features/auth/onboarding_flow.dart';
 import '../../features/auth/profile_edit_screen.dart';
 import '../../features/home/home_shell.dart';
 import '../../features/rooms/rooms_list_screen.dart';
 import '../../features/chat/chat_list_screen.dart';
+import '../../features/chat/chat_screen.dart';
+import '../../data/models/group.dart';
+import '../../data/models/user_profile.dart';
+// membership imported below already
 import '../../features/membership/membership_screen.dart';
 
 final GlobalKey<NavigatorState> _rootKey = GlobalKey<NavigatorState>(
@@ -20,23 +24,47 @@ final GlobalKey<NavigatorState> _rootKey = GlobalKey<NavigatorState>(
 class _AuthRefresh extends ChangeNotifier {
   _AuthRefresh(Ref ref) {
     ref.listen(authStateChangesProvider, (_, __) => notifyListeners());
+    ref.listen(userProfileProvider, (_, __) => notifyListeners());
   }
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authAsync = ref.watch(authStateChangesProvider);
+  final profileAsync = ref.watch(userProfileProvider);
   return GoRouter(
     navigatorKey: _rootKey,
     refreshListenable: _AuthRefresh(ref),
     redirect: (context, state) {
       final isSignedIn = authAsync.asData?.value != null;
       final loc = state.matchedLocation;
-      final isAuthRoute = loc == '/signin' || loc == '/register';
+      final isAuthRoute =
+          loc == '/auth' || loc == '/signin' || loc == '/register';
+      final isOnboarding = loc == '/onboarding';
+      final isProfileRoute = loc.startsWith('/profile');
       if (!isSignedIn) {
-        return isAuthRoute ? null : '/signin';
+        return isAuthRoute ? null : '/auth';
       }
-      // Signed in: avoid staying on auth routes or root, send to rooms
-      if (isAuthRoute || loc == '/') return '/rooms';
+      // Signed in: check profile completeness
+      final profile = profileAsync.asData?.value;
+      bool incomplete = false;
+      if (profile == null) {
+        // Wait until profile loads; do not force redirect to rooms yet
+        // Keep user where they are unless on auth routes
+        if (isAuthRoute) return '/rooms';
+        if (isProfileRoute) return null;
+        return null;
+      } else {
+        incomplete = _isProfileIncomplete(profile);
+      }
+
+      if (incomplete) {
+        // Do not bounce away from the profile screen on refresh; only force onboarding elsewhere
+        if (isOnboarding || isProfileRoute) return null;
+        return '/onboarding';
+      }
+
+      // Profile complete: avoid auth and onboarding routes
+      if (isAuthRoute || isOnboarding || loc == '/') return '/rooms';
       return null;
     },
     routes: <RouteBase>[
@@ -45,15 +73,28 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'home',
         builder: (context, state) => const FirebaseCheckScreen(),
       ),
+      // Combined auth
+      GoRoute(
+        path: '/auth',
+        name: 'auth',
+        builder: (context, state) => const AuthScreen(),
+      ),
+      // Backward compat routes redirect to combined auth
       GoRoute(
         path: '/signin',
         name: 'signin',
-        builder: (context, state) => const SignInScreen(),
+        builder: (context, state) => const AuthScreen(),
       ),
       GoRoute(
         path: '/register',
         name: 'register',
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) => const AuthScreen(),
+      ),
+      // Onboarding flow
+      GoRoute(
+        path: '/onboarding',
+        name: 'onboarding',
+        builder: (context, state) => const OnboardingFlow(),
       ),
       // Tab shell
       ShellRoute(
@@ -87,6 +128,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ProfileEditScreen(),
       ),
       GoRoute(
+        path: '/chat/:id',
+        name: 'chat_room',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final extra = state.extra;
+          return ChatScreen(groupId: id, group: extra is Group ? extra : null);
+        },
+      ),
+      GoRoute(
         path: '/membership',
         name: 'membership',
         builder: (context, state) => const MembershipScreen(),
@@ -94,3 +144,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+bool _isProfileIncomplete(UserProfile profile) {
+  // Basic required fields exist from registration
+  if (profile.name.isEmpty || profile.email.isEmpty) return true;
+  // Enforce completion of these optional fields during onboarding
+  if (profile.phone == null || profile.phone!.isEmpty) return true;
+  if (profile.profession == null || profile.profession!.isEmpty) return true;
+  if (profile.niche == null || profile.niche!.isEmpty) return true;
+  if (profile.photoUrl == null || profile.photoUrl!.isEmpty) return true;
+  return false;
+}
