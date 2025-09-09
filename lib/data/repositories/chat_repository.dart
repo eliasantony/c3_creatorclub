@@ -33,6 +33,8 @@ class ChatRepository {
         .collection(_groupsCol)
         .doc(groupId)
         .collection('messages')
+        // Order by a stable, client-written timestamp to avoid flicker
+        // when server timestamps resolve and cause reordering
         .orderBy('createdAt', descending: false)
         .limit(100)
         .snapshots()
@@ -42,7 +44,9 @@ class ChatRepository {
   }
 
   Message _toMessage(String id, Map<String, dynamic> data) {
-    final createdAt = _toMillis(data['createdAt']);
+    // Prefer server timestamp if present, else client timestamp
+    final createdAt =
+        _toMillis(data['serverAt']) ?? _toMillis(data['createdAt']);
     final authorId = (data['senderId'] as String?) ?? 'unknown';
     final senderName = data['senderName'] as String?;
     final senderPhotoUrl = data['senderPhotoUrl'] as String?;
@@ -118,7 +122,10 @@ class ChatRepository {
       'senderName': senderName,
       'senderPhotoUrl': senderPhotoUrl,
       'text': text,
-      'createdAt': FieldValue.serverTimestamp(),
+      // Write a client timestamp for stable ordering immediately,
+      // and a server timestamp for authoritative time display.
+      'createdAt': DateTime.now(),
+      'serverAt': FieldValue.serverTimestamp(),
     });
   }
 
@@ -144,8 +151,28 @@ class ChatRepository {
       'senderName': senderName,
       'senderPhotoUrl': senderPhotoUrl,
       'imageUrl': url,
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': DateTime.now(),
+      'serverAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  /// Convenience helper to send multiple images in one go (as separate messages).
+  Future<void> sendImages({
+    required String groupId,
+    required String uid,
+    required List<File> files,
+    String? senderName,
+    String? senderPhotoUrl,
+  }) async {
+    for (final f in files) {
+      await sendImage(
+        groupId: groupId,
+        uid: uid,
+        file: f,
+        senderName: senderName,
+        senderPhotoUrl: senderPhotoUrl,
+      );
+    }
   }
 
   Future<void> sendFile({
@@ -173,7 +200,8 @@ class ChatRepository {
       'fileUrl': url,
       'fileMimeType': mimeType,
       'fileName': file.path.split('/').last,
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': DateTime.now(),
+      'serverAt': FieldValue.serverTimestamp(),
     });
   }
 }

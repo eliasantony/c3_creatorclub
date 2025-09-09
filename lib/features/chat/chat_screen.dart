@@ -25,13 +25,10 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
-  File? _pendingFile;
-  String? _pendingMime;
-  String? _pendingName;
-  ImageProvider? _pendingImageProvider;
+  /// Multiple pending attachments (images and files)
+  final List<_PendingAttachment> _pending = <_PendingAttachment>[];
   bool _isSendingAttachment = false;
-  final Map<String, Map<String, String?>> _userHints =
-      {}; // {uid: {name, photoUrl}}
+  final Map<String, Map<String, String?>> _userHints = {};
 
   @override
   Widget build(BuildContext context) {
@@ -40,17 +37,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final profile = ref.watch(userProfileProvider).value;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(title: Text(widget.group?.name ?? 'Chat')),
       body: messagesAsync.when(
         data: (msgs) {
           // Build user hints from latest messages (senderName/senderPhotoUrl fields in Firestore)
           _userHints.clear();
-          for (final m in msgs.reversed) {
-            if (m is TextMessage || m is ImageMessage || m is FileMessage) {
-              // Can't access metadata since not set; we will add extraction later if we include it
-              // For now hints come from Firestore snapshot via resolve below (fallback no-op)
-            }
-          }
           final controller = ref.watch(chatControllerProvider(widget.groupId));
           final currentUserId = authUser?.uid ?? 'anon';
           // Extract metadata hints for avatars/names
@@ -68,273 +60,462 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               }
             }
           }
-          return Chat(
-            chatController: controller,
-            currentUserId: currentUserId,
-            onMessageSend: (text) async {
-              final txt = text.trim();
-              if (txt.isEmpty || authUser == null) return;
-              await ref
-                  .read(chatRepositoryProvider)
-                  .sendText(
-                    groupId: widget.groupId,
-                    uid: authUser.uid,
-                    text: txt,
-                    senderName: profile?.name,
-                    senderPhotoUrl: profile?.photoUrl,
-                  );
-            },
-            onAttachmentTap: () => _handleAttachmentTap(ref),
-            builders: Builders(
-              chatMessageBuilder:
-                  (
-                    context,
-                    message,
-                    index,
-                    animation,
-                    child, {
-                    isRemoved,
-                    required bool isSentByMe,
-                    groupStatus,
-                  }) {
-                    final meta = message.metadata ?? const {};
-                    final showAvatar =
-                        !isSentByMe &&
-                        (groupStatus == null || groupStatus.isFirst);
-                    final showName =
-                        !isSentByMe &&
-                        (groupStatus == null || groupStatus.isFirst) &&
-                        (meta['senderName'] != null);
-                    final controller = context.read<ChatController>();
-                    final messages = controller.messages;
-                    DateTime? previousTime;
-                    if (index > 0)
-                      previousTime = messages[index - 1].resolvedTime;
-                    final needDateHeader = _needsDateHeader(
-                      previousTime,
-                      message.resolvedTime,
-                    );
-                    return ChatMessage(
-                      message: message,
-                      index: index,
-                      animation: animation,
-                      isRemoved: isRemoved,
-                      groupStatus: groupStatus,
-                      headerWidget: needDateHeader
-                          ? _DateHeader(date: message.resolvedTime)
-                          : null,
-                      leadingWidget: !isSentByMe
-                          ? _AvatarSlot(
-                              show: showAvatar,
-                              userId: message.authorId,
-                            )
-                          : null,
-                      topWidget: showName
-                          ? Align(
-                              alignment: Alignment.centerLeft,
-                              child: Padding(
-                                padding: const EdgeInsets.only(
-                                  left: 4,
-                                  bottom: 2,
-                                ),
-                                child: _AuthorName(
-                                  userId: message.authorId,
-                                  overrideName:
-                                      meta['senderName'] as String? ??
-                                      _userHints[message.authorId]?['name'],
-                                ),
-                              ),
-                            )
-                          : null,
-                      child: child,
-                    );
-                  },
-              imageMessageBuilder:
-                  (context, m, index, {required bool isSentByMe, groupStatus}) {
-                    return GestureDetector(
-                      onTap: () => _openImageViewer(context, m.source),
-                      child: _MediaBubble(
-                        isSentByMe: isSentByMe,
-                        time: m.resolvedTime,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: _NetworkImageWithLoader(
-                            url: m.source,
-                            width: 220,
-                            height: 220,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-              fileMessageBuilder:
-                  (context, m, index, {required bool isSentByMe, groupStatus}) {
-                    final scheme = Theme.of(context).colorScheme;
-                    return GestureDetector(
-                      onTap: () =>
-                          _handleFileOpen(context, m.source, m.mimeType),
-                      child: _MediaBubble(
-                        isSentByMe: isSentByMe,
-                        time: m.resolvedTime,
-                        child: Container(
-                          constraints: const BoxConstraints(maxWidth: 260),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isSentByMe
+
+          return Stack(
+            children: [
+              // Chat list area; keep bottom padding so content isn't hidden by composer
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 92),
+                  child: Chat(
+                    chatController: controller,
+                    currentUserId: currentUserId,
+                    onAttachmentTap: () => _handleAttachmentTap(ref),
+                    builders: Builders(
+                      // HIDE library composer (we render our own at the bottom)
+                      composerBuilder: (_) => const SizedBox.shrink(),
+
+                      // WhatsApp-like text bubbles (right: outgoing, left: incoming) with in-bubble timestamp
+                      textMessageBuilder:
+                          (
+                            context,
+                            m,
+                            index, {
+                            required bool isSentByMe,
+                            groupStatus,
+                          }) {
+                            final scheme = Theme.of(context).colorScheme;
+                            final bg = isSentByMe
                                 ? scheme.primary
-                                : scheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.insert_drive_file,
-                                color: isSentByMe
-                                    ? scheme.onPrimary
-                                    : scheme.primary,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      m.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: isSentByMe
-                                            ? scheme.onPrimary
-                                            : scheme.onSurface,
-                                      ),
-                                    ),
-                                    if (m.mimeType != null)
-                                      Text(
-                                        m.mimeType!,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: isSentByMe
-                                              ? scheme.onPrimary.withValues(
-                                                  alpha: 0.8,
-                                                )
-                                              : scheme.onSurfaceVariant,
+                                : scheme.surfaceContainerHighest;
+                            final fg = isSentByMe
+                                ? scheme.onPrimary
+                                : scheme.onSurface;
+                            final t = m.resolvedTime?.toLocal();
+                            final label = t != null
+                                ? TimeOfDay.fromDateTime(t).format(context)
+                                : '';
+
+                            BorderRadius bubbleRadius() => BorderRadius.only(
+                              topLeft: Radius.circular(isSentByMe ? 16 : 6),
+                              topRight: Radius.circular(isSentByMe ? 6 : 16),
+                              bottomLeft: const Radius.circular(16),
+                              bottomRight: const Radius.circular(16),
+                            );
+
+                            // Let wrapper position the bubble and size to its content
+                            return UnconstrainedBox(
+                              alignment: isSentByMe
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minWidth: 100, // room for timestamp
+                                  maxWidth: 320,
+                                ),
+                                child: IntrinsicWidth(
+                                  child: Stack(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          12,
+                                          10,
+                                          50,
+                                          18,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: bg,
+                                          borderRadius: bubbleRadius(),
+                                        ),
+                                        // Make sure the text itself is always left-aligned inside the bubble
+                                        child: Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: Text(
+                                            m.text,
+                                            textAlign: TextAlign.left,
+                                            style: TextStyle(color: fg),
+                                          ),
                                         ),
                                       ),
+                                      if (label.isNotEmpty)
+                                        Positioned(
+                                          right: 10,
+                                          bottom: 6,
+                                          child: Text(
+                                            label,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: isSentByMe
+                                                  ? scheme.onPrimary.withValues(
+                                                      alpha: 0.9,
+                                                    )
+                                                  : scheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+
+                      // Custom wrapper (no ChatMessage) so the library can't add its own outer time
+                      chatMessageBuilder:
+                          (
+                            context,
+                            message,
+                            index,
+                            animation,
+                            child, {
+                            isRemoved,
+                            required bool isSentByMe,
+                            groupStatus,
+                          }) {
+                            final meta = message.metadata ?? const {};
+                            final showAvatar =
+                                !isSentByMe &&
+                                (groupStatus == null || groupStatus.isFirst);
+                            final showName =
+                                !isSentByMe &&
+                                (groupStatus == null || groupStatus.isFirst) &&
+                                (meta['senderName'] != null);
+
+                            final ctrl = context.read<ChatController>();
+                            final messages = ctrl.messages;
+                            DateTime? previousTime;
+                            if (index > 0) {
+                              previousTime = messages[index - 1].resolvedTime;
+                            }
+                            final needDateHeader = _needsDateHeader(
+                              previousTime,
+                              message.resolvedTime,
+                            );
+
+                            final bubbleRow = Row(
+                              mainAxisAlignment: isSentByMe
+                                  ? MainAxisAlignment.end
+                                  : MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                if (!isSentByMe)
+                                  _AvatarSlot(
+                                    show: showAvatar,
+                                    userId: message.authorId,
+                                  ),
+                                if (!isSentByMe) const SizedBox(width: 4),
+                                // Do not wrap with Flexible so bubble sizes to content
+                                child,
+                                // No extra right padding for outgoing messages
+                              ],
+                            );
+
+                            return SizeTransition(
+                              sizeFactor: animation,
+                              child: Padding(
+                                // Make grouped messages appear closer together
+                                padding: EdgeInsets.only(
+                                  top:
+                                      (groupStatus != null &&
+                                          (groupStatus.isMiddle ||
+                                              groupStatus.isLast))
+                                      ? 2
+                                      : 4,
+                                  bottom:
+                                      (groupStatus != null &&
+                                          (groupStatus.isMiddle ||
+                                              groupStatus.isLast))
+                                      ? 2
+                                      : 4,
+                                  left: 8,
+                                  // Remove right padding for outgoing messages
+                                  right: isSentByMe ? 0 : 8,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (needDateHeader)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: _DateHeader(
+                                          date: message.resolvedTime,
+                                        ),
+                                      ),
+                                    if (showName)
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 44,
+                                            bottom: 2,
+                                          ),
+                                          child: _AuthorName(
+                                            userId: message.authorId,
+                                            overrideName:
+                                                meta['senderName'] as String? ??
+                                                _userHints[message
+                                                    .authorId]?['name'],
+                                          ),
+                                        ),
+                                      ),
+                                    bubbleRow,
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 4),
-                              Icon(
-                                Icons.download,
-                                size: 18,
-                                color: isSentByMe
-                                    ? scheme.onPrimary
-                                    : scheme.onSurfaceVariant,
+                            );
+                          },
+
+                      imageMessageBuilder:
+                          (
+                            context,
+                            m,
+                            index, {
+                            required bool isSentByMe,
+                            groupStatus,
+                          }) {
+                            return GestureDetector(
+                              onTap: () => _openImageViewer(context, m.source),
+                              child: _MediaBubble(
+                                isSentByMe: isSentByMe,
+                                time: m.resolvedTime,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: _NetworkImageWithLoader(
+                                    url: m.source,
+                                    width: 220,
+                                    height: 220,
+                                  ),
+                                ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-              composerBuilder: (context) => _Composer(
-                onSend: (text) async {
-                  final txt = text.trim();
-                  if (txt.isEmpty || authUser == null) return false;
-                  await ref
-                      .read(chatRepositoryProvider)
-                      .sendText(
-                        groupId: widget.groupId,
-                        uid: authUser.uid,
-                        text: txt,
-                        senderName: profile?.name,
-                        senderPhotoUrl: profile?.photoUrl,
+                            );
+                          },
+
+                      fileMessageBuilder:
+                          (
+                            context,
+                            m,
+                            index, {
+                            required bool isSentByMe,
+                            groupStatus,
+                          }) {
+                            final scheme = Theme.of(context).colorScheme;
+                            final isPdf =
+                                (m.mimeType ?? '').contains('pdf') ||
+                                m.name.toLowerCase().endsWith('.pdf');
+                            return _MediaBubble(
+                              isSentByMe: isSentByMe,
+                              time: m.resolvedTime,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minWidth: 100,
+                                  maxWidth: 300,
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    12,
+                                    12,
+                                    12,
+                                    22,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isSentByMe
+                                        ? scheme.primary
+                                        : scheme.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        isPdf
+                                            ? Icons.picture_as_pdf
+                                            : Icons.insert_drive_file,
+                                        color: isSentByMe
+                                            ? scheme.onPrimary
+                                            : scheme.primary,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              m.name,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: isSentByMe
+                                                    ? scheme.onPrimary
+                                                    : scheme.onSurface,
+                                              ),
+                                            ),
+                                            if (m.mimeType != null)
+                                              Text(
+                                                m.mimeType!,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: isSentByMe
+                                                      ? scheme.onPrimary
+                                                            .withValues(
+                                                              alpha: 0.8,
+                                                            )
+                                                      : scheme.onSurfaceVariant,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      TextButton.icon(
+                                        onPressed: () => _handleFileOpen(
+                                          context,
+                                          m.source,
+                                          m.mimeType,
+                                        ),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: isSentByMe
+                                              ? scheme.onPrimary
+                                              : scheme.primary,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
+                                          ),
+                                          minimumSize: const Size(0, 0),
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                        icon: Icon(
+                                          Icons.open_in_new,
+                                          size: 18,
+                                          color: scheme.onPrimary,
+                                        ),
+                                        label: Text(
+                                          'Open',
+                                          style: TextStyle(
+                                            color: scheme.onPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                    ),
+                    resolveUser: (UserID id) async {
+                      if (profile != null && profile.uid == id) {
+                        return User(
+                          id: id,
+                          name: profile.name,
+                          imageSource: profile.photoUrl,
+                        );
+                      }
+                      try {
+                        final fs = ref.read(firestoreProvider);
+                        final snap = await fs.collection('users').doc(id).get();
+                        if (snap.exists) {
+                          final data = snap.data() as Map<String, dynamic>;
+                          return User(
+                            id: id,
+                            name: data['name'] as String?,
+                            imageSource: data['photoUrl'] as String?,
+                          );
+                        }
+                      } catch (_) {}
+                      final hint = _userHints[id];
+                      return User(
+                        id: id,
+                        name: hint?['name'],
+                        imageSource: hint?['photoUrl'],
                       );
-                  return true;
-                },
-                onAttachment: () => _handleAttachmentTap(ref),
-                pendingFile: _pendingFile,
-                pendingName: _pendingName,
-                pendingMime: _pendingMime,
-                pendingImageProvider: _pendingImageProvider,
-                isSendingAttachment: _isSendingAttachment,
-                onRemoveAttachment: () {
-                  setState(() {
-                    _pendingFile = null;
-                    _pendingMime = null;
-                    _pendingName = null;
-                    _pendingImageProvider = null;
-                  });
-                },
-                onSendAttachment: () async {
-                  if (_pendingFile == null || authUser == null) return;
-                  setState(() => _isSendingAttachment = true);
-                  try {
-                    final repo = ref.read(chatRepositoryProvider);
-                    final isImage =
-                        (_pendingMime?.startsWith('image/') ?? false);
-                    if (isImage) {
-                      await repo.sendImage(
-                        groupId: widget.groupId,
-                        uid: authUser.uid,
-                        file: _pendingFile!,
-                        senderName: profile?.name,
-                        senderPhotoUrl: profile?.photoUrl,
-                      );
-                    } else {
-                      await repo.sendFile(
-                        groupId: widget.groupId,
-                        uid: authUser.uid,
-                        file: _pendingFile!,
-                        mimeType: _pendingMime,
-                        senderName: profile?.name,
-                        senderPhotoUrl: profile?.photoUrl,
-                      );
-                    }
-                  } finally {
-                    if (mounted) {
-                      setState(() {
-                        _isSendingAttachment = false;
-                        _pendingFile = null;
-                        _pendingMime = null;
-                        _pendingName = null;
-                        _pendingImageProvider = null;
-                      });
-                    }
-                  }
-                },
+                    },
+                    theme: ChatTheme.fromThemeData(Theme.of(context)),
+                  ),
+                ),
               ),
-            ),
-            resolveUser: (UserID id) async {
-              if (profile != null && profile.uid == id) {
-                return User(
-                  id: id,
-                  name: profile.name,
-                  imageSource: profile.photoUrl,
-                );
-              }
-              try {
-                final fs = ref.read(firestoreProvider);
-                final snap = await fs.collection('users').doc(id).get();
-                if (snap.exists) {
-                  final data = snap.data() as Map<String, dynamic>;
-                  return User(
-                    id: id,
-                    name: data['name'] as String?,
-                    imageSource: data['photoUrl'] as String?,
-                  );
-                }
-              } catch (_) {}
-              final hint = _userHints[id];
-              return User(
-                id: id,
-                name: hint?['name'],
-                imageSource: hint?['photoUrl'],
-              );
-            },
-            theme: ChatTheme.fromThemeData(Theme.of(context)),
+
+              // Bottom-anchored composer; expands with keyboard
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: AnimatedPadding(
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeOut,
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                  ),
+                  child: _Composer(
+                    onSend: (text) async {
+                      final txt = text.trim();
+                      if (txt.isEmpty || authUser == null) return false;
+                      await ref
+                          .read(chatRepositoryProvider)
+                          .sendText(
+                            groupId: widget.groupId,
+                            uid: authUser.uid,
+                            text: txt,
+                            senderName: profile?.name,
+                            senderPhotoUrl: profile?.photoUrl,
+                          );
+                      return true;
+                    },
+                    onAttachment: () => _handleAttachmentTap(ref),
+                    pending: _pending,
+                    isSendingAttachment: _isSendingAttachment,
+                    onRemoveAttachment: () {
+                      setState(() => _pending.clear());
+                    },
+                    onSendAttachment: () async {
+                      if (_pending.isEmpty || authUser == null) return;
+                      setState(() => _isSendingAttachment = true);
+                      try {
+                        final repo = ref.read(chatRepositoryProvider);
+                        for (final att in List<_PendingAttachment>.from(
+                          _pending,
+                        )) {
+                          final isImage =
+                              att.mime?.startsWith('image/') ?? false;
+                          if (isImage) {
+                            await repo.sendImage(
+                              groupId: widget.groupId,
+                              uid: authUser.uid,
+                              file: att.file,
+                              senderName: profile?.name,
+                              senderPhotoUrl: profile?.photoUrl,
+                            );
+                          } else {
+                            await repo.sendFile(
+                              groupId: widget.groupId,
+                              uid: authUser.uid,
+                              file: att.file,
+                              mimeType: att.mime,
+                              senderName: profile?.name,
+                              senderPhotoUrl: profile?.photoUrl,
+                            );
+                          }
+                        }
+                      } finally {
+                        if (mounted) {
+                          setState(() {
+                            _isSendingAttachment = false;
+                            _pending.clear();
+                          });
+                        }
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ],
           );
         },
         error: (e, st) => Center(child: Text('Error: $e')),
@@ -351,9 +532,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         child: Wrap(
           children: [
             ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.of(ctx).pop('camera'),
+            ),
+            ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Photo from library'),
-              onTap: () => Navigator.of(ctx).pop('image'),
+              title: const Text('Photos from library (multi-select)'),
+              onTap: () => Navigator.of(ctx).pop('images'),
             ),
             ListTile(
               leading: const Icon(Icons.picture_as_pdf_outlined),
@@ -371,21 +557,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
     if (choice == null) return;
 
-    if (choice == 'image') {
+    if (choice == 'images') {
       final picker = ImagePicker();
-      final picked = await picker.pickImage(
-        source: ImageSource.gallery,
+      final picked = await picker.pickMultiImage(maxWidth: 2000);
+      if (picked.isEmpty) return;
+      setState(() {
+        _pending
+          ..clear()
+          ..addAll(
+            picked.map((x) {
+              final f = File(x.path);
+              final isPng = x.path.toLowerCase().endsWith('.png');
+              return _PendingAttachment(
+                file: f,
+                mime: 'image/${isPng ? 'png' : 'jpeg'}',
+                name: x.name,
+                preview: FileImage(f),
+              );
+            }),
+          );
+      });
+    } else if (choice == 'camera') {
+      final picker = ImagePicker();
+      final shot = await picker.pickImage(
+        source: ImageSource.camera,
         maxWidth: 2000,
       );
-      if (picked == null) return;
-      final file = File(picked.path);
-      setState(() {
-        _pendingFile = file;
-        _pendingMime =
-            'image/${picked.path.toLowerCase().endsWith('.png') ? 'png' : 'jpeg'}';
-        _pendingName = picked.name;
-        _pendingImageProvider = FileImage(file);
-      });
+      if (shot == null) return;
+      // Instant send like WhatsApp
+      final authUser = ref.read(authStateChangesProvider).value;
+      final profile = ref.read(userProfileProvider).value;
+      if (authUser == null) return;
+      await ref
+          .read(chatRepositoryProvider)
+          .sendImage(
+            groupId: widget.groupId,
+            uid: authUser.uid,
+            file: File(shot.path),
+            senderName: profile?.name,
+            senderPhotoUrl: profile?.photoUrl,
+          );
     } else if (choice == 'pdf') {
       // iOS requires UTI for PDF picking
       final typeGroup = const XTypeGroup(
@@ -404,10 +615,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         return;
       }
       setState(() {
-        _pendingFile = File(xfile.path);
-        _pendingMime = 'application/pdf';
-        _pendingName = xfile.name;
-        _pendingImageProvider = null;
+        _pending
+          ..clear()
+          ..add(
+            _PendingAttachment(
+              file: File(xfile.path),
+              mime: 'application/pdf',
+              name: xfile.name,
+            ),
+          );
       });
     }
   }
@@ -548,24 +764,20 @@ Future<void> _handleFileOpen(
   String url,
   String? mime,
 ) async {
-  if (mime != null && mime.contains('pdf')) {
-    // In-app PDF preview
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.85),
-      builder: (_) =>
-          _PdfPreview(url: url, onOpenExternal: () => _launchExternal(url)),
-    );
-    return;
-  }
+  // Always prefer the device's native viewer for robustness (esp. PDFs)
   await _launchExternal(url);
 }
 
 Future<void> _launchExternal(String url) async {
   try {
     final uri = Uri.parse(url);
-    if (!await canLaunchUrl(uri)) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    // Try external app first
+    if (await canLaunchUrl(uri)) {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (ok) return;
+    }
+    // Fallback to in-app browser view (CustomTabs/SafariVC)
+    await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
   } catch (_) {
     // swallow
   }
@@ -575,20 +787,14 @@ class _Composer extends StatefulWidget {
   const _Composer({
     required this.onSend,
     required this.onAttachment,
-    required this.pendingFile,
-    required this.pendingName,
-    required this.pendingMime,
-    required this.pendingImageProvider,
+    required this.pending,
     required this.isSendingAttachment,
     required this.onRemoveAttachment,
     required this.onSendAttachment,
   });
   final Future<bool> Function(String text) onSend; // return true to clear
   final VoidCallback onAttachment;
-  final File? pendingFile;
-  final String? pendingName;
-  final String? pendingMime;
-  final ImageProvider? pendingImageProvider;
+  final List<_PendingAttachment> pending;
   final bool isSendingAttachment;
   final VoidCallback onRemoveAttachment;
   final VoidCallback onSendAttachment;
@@ -615,7 +821,7 @@ class _ComposerState extends State<_Composer> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (widget.pendingFile != null)
+            if (widget.pending.isNotEmpty)
               Container(
                 margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
                 padding: const EdgeInsets.all(8),
@@ -624,119 +830,108 @@ class _ComposerState extends State<_Composer> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: scheme.outlineVariant),
                 ),
-                child: Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child:
-                          (widget.pendingMime?.startsWith('image/') ?? false) &&
-                              widget.pendingImageProvider != null
-                          ? Image(
-                              image: widget.pendingImageProvider!,
-                              width: 56,
-                              height: 56,
-                              fit: BoxFit.cover,
-                            )
-                          : Container(
-                              width: 56,
-                              height: 56,
-                              alignment: Alignment.center,
-                              color: scheme.primaryContainer,
-                              child: Icon(
-                                widget.pendingMime == 'application/pdf'
-                                    ? Icons.picture_as_pdf
-                                    : Icons.insert_drive_file,
-                                color: scheme.onPrimaryContainer,
-                              ),
-                            ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            widget.pendingName ??
-                                widget.pendingFile!.path.split('/').last,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (int i = 0; i < widget.pending.length; i++)
+                          _PendingThumb(
+                            att: widget.pending[i],
+                            onRemove: widget.isSendingAttachment
+                                ? null
+                                : () {
+                                    setState(() => widget.pending.removeAt(i));
+                                  },
                           ),
-                          Text(
-                            widget.pendingMime ?? 'attachment',
-                            style: Theme.of(context).textTheme.labelSmall,
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: widget.isSendingAttachment
+                              ? null
+                              : widget.onRemoveAttachment,
+                          child: Text(
+                            'Clear',
+                            style: TextStyle(color: scheme.onPrimary),
                           ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: widget.isSendingAttachment
-                          ? null
-                          : widget.onRemoveAttachment,
-                      icon: const Icon(Icons.close),
-                    ),
-                    const SizedBox(width: 4),
-                    FilledButton(
-                      onPressed: widget.isSendingAttachment
-                          ? null
-                          : widget.onSendAttachment,
-                      child: widget.isSendingAttachment
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Send'),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: widget.isSendingAttachment
+                              ? null
+                              : widget.onSendAttachment,
+                          child: widget.isSendingAttachment
+                              ? SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: scheme.onPrimary,
+                                  ),
+                                )
+                              : Text('Send ${widget.pending.length}'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 140),
-                    child: TextField(
-                      controller: _controller,
-                      maxLines: null,
-                      decoration: const InputDecoration(
-                        hintText: 'Message',
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 14,
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 140),
+                      child: TextField(
+                        controller: _controller,
+                        maxLines: null,
+                        decoration: const InputDecoration(
+                          hintText: 'Message',
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 14,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                IconButton(
-                  onPressed: widget.onAttachment,
-                  icon: const Icon(Icons.attach_file),
-                ),
-                IconButton(
-                  onPressed: _sending
-                      ? null
-                      : () async {
-                          final text = _controller.text;
-                          setState(() => _sending = true);
-                          try {
-                            final clear = await widget.onSend(text);
-                            if (clear) _controller.clear();
-                          } finally {
-                            if (mounted) setState(() => _sending = false);
-                          }
-                        },
-                  icon: _sending
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.send),
-                ),
-              ],
+                  IconButton(
+                    onPressed: widget.onAttachment,
+                    icon: const Icon(Icons.attach_file),
+                  ),
+                  IconButton(
+                    onPressed: _sending
+                        ? null
+                        : () async {
+                            final text = _controller.text;
+                            setState(() => _sending = true);
+                            try {
+                              final clear = await widget.onSend(text);
+                              if (clear) _controller.clear();
+                            } finally {
+                              if (mounted) setState(() => _sending = false);
+                            }
+                          },
+                    icon: _sending
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -760,7 +955,11 @@ class _MediaBubble extends StatelessWidget {
     final label = t != null ? TimeOfDay.fromDateTime(t).format(context) : '';
     return Stack(
       children: [
-        child,
+        // Ensure space for bottom-right timestamp overlay for media
+        Padding(
+          padding: EdgeInsets.only(bottom: label.isNotEmpty ? 22 : 0),
+          child: child,
+        ),
         if (label.isNotEmpty)
           Positioned(
             right: 8,
@@ -816,6 +1015,69 @@ class _DateHeader extends StatelessWidget {
           ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
       ),
+    );
+  }
+}
+
+/// Internal model for attachments queued in the composer.
+class _PendingAttachment {
+  _PendingAttachment({required this.file, this.mime, this.name, this.preview});
+  final File file;
+  final String? mime;
+  final String? name;
+  final ImageProvider? preview;
+}
+
+/// Small thumbnail tile used in the composer for pending attachments.
+class _PendingThumb extends StatelessWidget {
+  const _PendingThumb({required this.att, this.onRemove});
+  final _PendingAttachment att;
+  final VoidCallback? onRemove;
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isImage = (att.mime ?? '').startsWith('image/');
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            color: scheme.surfaceContainerHighest,
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          child: isImage && att.preview != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image(image: att.preview!, fit: BoxFit.cover),
+                )
+              : Icon(
+                  (att.mime ?? '').contains('pdf')
+                      ? Icons.picture_as_pdf
+                      : Icons.insert_drive_file,
+                ),
+        ),
+        if (onRemove != null)
+          Positioned(
+            top: -6,
+            right: -6,
+            child: InkWell(
+              onTap: onRemove,
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: scheme.error,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: scheme.onError),
+                ),
+                child: Icon(Icons.close, size: 14, color: scheme.onError),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -882,8 +1144,9 @@ class _NetworkImageWithLoader extends StatelessWidget {
 }
 
 class _PdfPreviewState extends State<_PdfPreview> {
-  PdfController? _controller;
+  PdfControllerPinch? _controller;
   bool _error = false;
+  bool _loading = true;
   @override
   void initState() {
     super.initState();
@@ -892,19 +1155,29 @@ class _PdfPreviewState extends State<_PdfPreview> {
 
   Future<void> _load() async {
     try {
+      debugPrint('Loading PDF from ${widget.url}');
       final resp = await http.get(Uri.parse(widget.url));
       if (resp.statusCode == 200) {
         final doc = await PdfDocument.openData(resp.bodyBytes);
         if (mounted) {
           setState(() {
-            _controller = PdfController(document: Future.value(doc));
+            _controller = PdfControllerPinch(document: Future.value(doc));
+            _loading = false;
           });
         }
       } else {
-        if (mounted) setState(() => _error = true);
+        if (mounted)
+          setState(() {
+            _error = true;
+            _loading = false;
+          });
       }
     } catch (_) {
-      if (mounted) setState(() => _error = true);
+      if (mounted)
+        setState(() {
+          _error = true;
+          _loading = false;
+        });
     }
   }
 
@@ -923,7 +1196,7 @@ class _PdfPreviewState extends State<_PdfPreview> {
         child: Stack(
           children: [
             Positioned.fill(
-              child: _error || _controller == null
+              child: _error
                   ? const Center(
                       child: Icon(
                         Icons.picture_as_pdf,
@@ -931,7 +1204,11 @@ class _PdfPreviewState extends State<_PdfPreview> {
                         size: 48,
                       ),
                     )
-                  : PdfView(
+                  : (_loading || _controller == null)
+                  ? const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    )
+                  : PdfViewPinch(
                       controller: _controller!,
                       onDocumentError: (e) => setState(() => _error = true),
                     ),

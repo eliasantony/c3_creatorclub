@@ -1,3 +1,10 @@
+## 2025-09-09 Chat polish
+
+- Keep message time inside bubble; enforce min width and left-align text; timestamp anchored bottom-right.
+- Tighten spacing for grouped messages (smaller vertical gaps when group continues).
+- Fix PDF in-app preview by switching to PdfViewPinch with proper controller; add loader and error.
+- Stabilize message ordering and eliminate brief duplicate-send flicker by writing client `createdAt` and server `serverAt`; prefer `serverAt` for display.
+
 ## 2025-09-04 Chat improvements
 
 - Chat UI now shows user avatars (circles) and names via resolveUser.
