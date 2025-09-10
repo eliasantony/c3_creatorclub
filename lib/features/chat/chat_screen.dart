@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:http/http.dart' as http;
 
@@ -199,9 +201,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 if (!isSentByMe)
-                                  _AvatarSlot(
-                                    show: showAvatar,
-                                    userId: message.authorId,
+                                  Transform.translate(
+                                    // Raise the avatar by the same inset we add to media
+                                    // bubbles for the timestamp overlay so it aligns with
+                                    // the visible bottom of the image/PDF.
+                                    offset: Offset(
+                                      0,
+                                      (message is ImageMessage ||
+                                              message is FileMessage)
+                                          ? -22.0
+                                          : 0,
+                                    ),
+                                    child: _AvatarSlot(
+                                      show: showAvatar,
+                                      userId: message.authorId,
+                                    ),
                                   ),
                                 if (!isSentByMe) const SizedBox(width: 4),
                                 // Do not wrap with Flexible so bubble sizes to content
@@ -743,7 +757,7 @@ void _openImageViewer(BuildContext context, String url) {
                   icon: const Icon(Icons.open_in_new, color: Colors.white),
                   onPressed: () async {
                     Navigator.pop(context);
-                    await _launchExternal(url);
+                    await _downloadAndOpen(url, suggestedName: 'image.jpg');
                   },
                 ),
                 IconButton(
@@ -764,8 +778,9 @@ Future<void> _handleFileOpen(
   String url,
   String? mime,
 ) async {
-  // Always prefer the device's native viewer for robustness (esp. PDFs)
-  await _launchExternal(url);
+  // Download then open with the platform default app
+  final name = _fileNameFromUrl(url);
+  await _downloadAndOpen(url, suggestedName: name);
 }
 
 Future<void> _launchExternal(String url) async {
@@ -780,6 +795,34 @@ Future<void> _launchExternal(String url) async {
     await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
   } catch (_) {
     // swallow
+  }
+}
+
+Future<void> _downloadAndOpen(String url, {String? suggestedName}) async {
+  try {
+    final resp = await http.get(Uri.parse(url));
+    if (resp.statusCode != 200) {
+      await _launchExternal(url);
+      return;
+    }
+    final dir = await getTemporaryDirectory();
+    final name = suggestedName ?? _fileNameFromUrl(url);
+    final file = File('${dir.path}/$name');
+    await file.writeAsBytes(resp.bodyBytes);
+    await OpenFilex.open(file.path);
+  } catch (_) {
+    await _launchExternal(url);
+  }
+}
+
+String _fileNameFromUrl(String url) {
+  try {
+    final uri = Uri.parse(url);
+    final last = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : 'file';
+    if (last.contains('?')) return last.split('?').first;
+    return last;
+  } catch (_) {
+    return 'file';
   }
 }
 

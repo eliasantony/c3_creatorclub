@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 mixin _$UserProfile {
 
  String get uid; String get name; String get email; String? get phone; String? get profession; String? get niche; String? get photoUrl; String get membershipTier;// 'basic' | 'premium'
- String? get stripeCustomerId;
+ String? get stripeCustomerId; bool get chatTosAccepted;
 /// Create a copy of UserProfile
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -29,16 +29,16 @@ $UserProfileCopyWith<UserProfile> get copyWith => _$UserProfileCopyWithImpl<User
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UserProfile&&(identical(other.uid, uid) || other.uid == uid)&&(identical(other.name, name) || other.name == name)&&(identical(other.email, email) || other.email == email)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.profession, profession) || other.profession == profession)&&(identical(other.niche, niche) || other.niche == niche)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl)&&(identical(other.membershipTier, membershipTier) || other.membershipTier == membershipTier)&&(identical(other.stripeCustomerId, stripeCustomerId) || other.stripeCustomerId == stripeCustomerId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UserProfile&&(identical(other.uid, uid) || other.uid == uid)&&(identical(other.name, name) || other.name == name)&&(identical(other.email, email) || other.email == email)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.profession, profession) || other.profession == profession)&&(identical(other.niche, niche) || other.niche == niche)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl)&&(identical(other.membershipTier, membershipTier) || other.membershipTier == membershipTier)&&(identical(other.stripeCustomerId, stripeCustomerId) || other.stripeCustomerId == stripeCustomerId)&&(identical(other.chatTosAccepted, chatTosAccepted) || other.chatTosAccepted == chatTosAccepted));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,uid,name,email,phone,profession,niche,photoUrl,membershipTier,stripeCustomerId);
+int get hashCode => Object.hash(runtimeType,uid,name,email,phone,profession,niche,photoUrl,membershipTier,stripeCustomerId,chatTosAccepted);
 
 @override
 String toString() {
-  return 'UserProfile(uid: $uid, name: $name, email: $email, phone: $phone, profession: $profession, niche: $niche, photoUrl: $photoUrl, membershipTier: $membershipTier, stripeCustomerId: $stripeCustomerId)';
+  return 'UserProfile(uid: $uid, name: $name, email: $email, phone: $phone, profession: $profession, niche: $niche, photoUrl: $photoUrl, membershipTier: $membershipTier, stripeCustomerId: $stripeCustomerId, chatTosAccepted: $chatTosAccepted)';
 }
 
 
@@ -49,7 +49,7 @@ abstract mixin class $UserProfileCopyWith<$Res>  {
   factory $UserProfileCopyWith(UserProfile value, $Res Function(UserProfile) _then) = _$UserProfileCopyWithImpl;
 @useResult
 $Res call({
- String uid, String name, String email, String? phone, String? profession, String? niche, String? photoUrl, String membershipTier, String? stripeCustomerId
+ String uid, String name, String email, String? phone, String? profession, String? niche, String? photoUrl, String membershipTier, String? stripeCustomerId, bool chatTosAccepted
 });
 
 
@@ -66,7 +66,7 @@ class _$UserProfileCopyWithImpl<$Res>
 
 /// Create a copy of UserProfile
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? uid = null,Object? name = null,Object? email = null,Object? phone = freezed,Object? profession = freezed,Object? niche = freezed,Object? photoUrl = freezed,Object? membershipTier = null,Object? stripeCustomerId = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? uid = null,Object? name = null,Object? email = null,Object? phone = freezed,Object? profession = freezed,Object? niche = freezed,Object? photoUrl = freezed,Object? membershipTier = null,Object? stripeCustomerId = freezed,Object? chatTosAccepted = null,}) {
   return _then(_self.copyWith(
 uid: null == uid ? _self.uid : uid // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -77,7 +77,8 @@ as String?,niche: freezed == niche ? _self.niche : niche // ignore: cast_nullabl
 as String?,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
 as String?,membershipTier: null == membershipTier ? _self.membershipTier : membershipTier // ignore: cast_nullable_to_non_nullable
 as String,stripeCustomerId: freezed == stripeCustomerId ? _self.stripeCustomerId : stripeCustomerId // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,chatTosAccepted: null == chatTosAccepted ? _self.chatTosAccepted : chatTosAccepted // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -162,10 +163,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String uid,  String name,  String email,  String? phone,  String? profession,  String? niche,  String? photoUrl,  String membershipTier,  String? stripeCustomerId)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String uid,  String name,  String email,  String? phone,  String? profession,  String? niche,  String? photoUrl,  String membershipTier,  String? stripeCustomerId,  bool chatTosAccepted)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _UserProfile() when $default != null:
-return $default(_that.uid,_that.name,_that.email,_that.phone,_that.profession,_that.niche,_that.photoUrl,_that.membershipTier,_that.stripeCustomerId);case _:
+return $default(_that.uid,_that.name,_that.email,_that.phone,_that.profession,_that.niche,_that.photoUrl,_that.membershipTier,_that.stripeCustomerId,_that.chatTosAccepted);case _:
   return orElse();
 
 }
@@ -183,10 +184,10 @@ return $default(_that.uid,_that.name,_that.email,_that.phone,_that.profession,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String uid,  String name,  String email,  String? phone,  String? profession,  String? niche,  String? photoUrl,  String membershipTier,  String? stripeCustomerId)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String uid,  String name,  String email,  String? phone,  String? profession,  String? niche,  String? photoUrl,  String membershipTier,  String? stripeCustomerId,  bool chatTosAccepted)  $default,) {final _that = this;
 switch (_that) {
 case _UserProfile():
-return $default(_that.uid,_that.name,_that.email,_that.phone,_that.profession,_that.niche,_that.photoUrl,_that.membershipTier,_that.stripeCustomerId);case _:
+return $default(_that.uid,_that.name,_that.email,_that.phone,_that.profession,_that.niche,_that.photoUrl,_that.membershipTier,_that.stripeCustomerId,_that.chatTosAccepted);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -203,10 +204,10 @@ return $default(_that.uid,_that.name,_that.email,_that.phone,_that.profession,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String uid,  String name,  String email,  String? phone,  String? profession,  String? niche,  String? photoUrl,  String membershipTier,  String? stripeCustomerId)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String uid,  String name,  String email,  String? phone,  String? profession,  String? niche,  String? photoUrl,  String membershipTier,  String? stripeCustomerId,  bool chatTosAccepted)?  $default,) {final _that = this;
 switch (_that) {
 case _UserProfile() when $default != null:
-return $default(_that.uid,_that.name,_that.email,_that.phone,_that.profession,_that.niche,_that.photoUrl,_that.membershipTier,_that.stripeCustomerId);case _:
+return $default(_that.uid,_that.name,_that.email,_that.phone,_that.profession,_that.niche,_that.photoUrl,_that.membershipTier,_that.stripeCustomerId,_that.chatTosAccepted);case _:
   return null;
 
 }
@@ -218,7 +219,7 @@ return $default(_that.uid,_that.name,_that.email,_that.phone,_that.profession,_t
 @JsonSerializable()
 
 class _UserProfile implements UserProfile {
-  const _UserProfile({required this.uid, required this.name, required this.email, this.phone, this.profession, this.niche, this.photoUrl, this.membershipTier = 'basic', this.stripeCustomerId});
+  const _UserProfile({required this.uid, required this.name, required this.email, this.phone, this.profession, this.niche, this.photoUrl, this.membershipTier = 'basic', this.stripeCustomerId, this.chatTosAccepted = false});
   factory _UserProfile.fromJson(Map<String, dynamic> json) => _$UserProfileFromJson(json);
 
 @override final  String uid;
@@ -231,6 +232,7 @@ class _UserProfile implements UserProfile {
 @override@JsonKey() final  String membershipTier;
 // 'basic' | 'premium'
 @override final  String? stripeCustomerId;
+@override@JsonKey() final  bool chatTosAccepted;
 
 /// Create a copy of UserProfile
 /// with the given fields replaced by the non-null parameter values.
@@ -245,16 +247,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UserProfile&&(identical(other.uid, uid) || other.uid == uid)&&(identical(other.name, name) || other.name == name)&&(identical(other.email, email) || other.email == email)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.profession, profession) || other.profession == profession)&&(identical(other.niche, niche) || other.niche == niche)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl)&&(identical(other.membershipTier, membershipTier) || other.membershipTier == membershipTier)&&(identical(other.stripeCustomerId, stripeCustomerId) || other.stripeCustomerId == stripeCustomerId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UserProfile&&(identical(other.uid, uid) || other.uid == uid)&&(identical(other.name, name) || other.name == name)&&(identical(other.email, email) || other.email == email)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.profession, profession) || other.profession == profession)&&(identical(other.niche, niche) || other.niche == niche)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl)&&(identical(other.membershipTier, membershipTier) || other.membershipTier == membershipTier)&&(identical(other.stripeCustomerId, stripeCustomerId) || other.stripeCustomerId == stripeCustomerId)&&(identical(other.chatTosAccepted, chatTosAccepted) || other.chatTosAccepted == chatTosAccepted));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,uid,name,email,phone,profession,niche,photoUrl,membershipTier,stripeCustomerId);
+int get hashCode => Object.hash(runtimeType,uid,name,email,phone,profession,niche,photoUrl,membershipTier,stripeCustomerId,chatTosAccepted);
 
 @override
 String toString() {
-  return 'UserProfile(uid: $uid, name: $name, email: $email, phone: $phone, profession: $profession, niche: $niche, photoUrl: $photoUrl, membershipTier: $membershipTier, stripeCustomerId: $stripeCustomerId)';
+  return 'UserProfile(uid: $uid, name: $name, email: $email, phone: $phone, profession: $profession, niche: $niche, photoUrl: $photoUrl, membershipTier: $membershipTier, stripeCustomerId: $stripeCustomerId, chatTosAccepted: $chatTosAccepted)';
 }
 
 
@@ -265,7 +267,7 @@ abstract mixin class _$UserProfileCopyWith<$Res> implements $UserProfileCopyWith
   factory _$UserProfileCopyWith(_UserProfile value, $Res Function(_UserProfile) _then) = __$UserProfileCopyWithImpl;
 @override @useResult
 $Res call({
- String uid, String name, String email, String? phone, String? profession, String? niche, String? photoUrl, String membershipTier, String? stripeCustomerId
+ String uid, String name, String email, String? phone, String? profession, String? niche, String? photoUrl, String membershipTier, String? stripeCustomerId, bool chatTosAccepted
 });
 
 
@@ -282,7 +284,7 @@ class __$UserProfileCopyWithImpl<$Res>
 
 /// Create a copy of UserProfile
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? uid = null,Object? name = null,Object? email = null,Object? phone = freezed,Object? profession = freezed,Object? niche = freezed,Object? photoUrl = freezed,Object? membershipTier = null,Object? stripeCustomerId = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? uid = null,Object? name = null,Object? email = null,Object? phone = freezed,Object? profession = freezed,Object? niche = freezed,Object? photoUrl = freezed,Object? membershipTier = null,Object? stripeCustomerId = freezed,Object? chatTosAccepted = null,}) {
   return _then(_UserProfile(
 uid: null == uid ? _self.uid : uid // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -293,7 +295,8 @@ as String?,niche: freezed == niche ? _self.niche : niche // ignore: cast_nullabl
 as String?,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
 as String?,membershipTier: null == membershipTier ? _self.membershipTier : membershipTier // ignore: cast_nullable_to_non_nullable
 as String,stripeCustomerId: freezed == stripeCustomerId ? _self.stripeCustomerId : stripeCustomerId // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,chatTosAccepted: null == chatTosAccepted ? _self.chatTosAccepted : chatTosAccepted // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

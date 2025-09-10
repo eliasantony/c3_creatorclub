@@ -86,7 +86,7 @@ class RoomCard extends StatelessWidget {
                     bottom: 8,
                     child: _Pill(
                       icon: Icons.euro_rounded,
-                      label: '$priceText / 3h',
+                      label: '$priceText / h',
                       bg: scheme.primary,
                       fg: scheme.onPrimary,
                     ),

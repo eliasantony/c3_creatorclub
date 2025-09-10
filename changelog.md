@@ -1,3 +1,14 @@
+## 2025-09-10
+
+- Rooms: Added full-screen swipeable image gallery (`ImageGalleryScreen`) and wired it from `RoomDetailScreen` header images (tap to open). Minimal, no routing change; uses `MaterialPageRoute` from detail screen.
+
+## [Unreleased] - Add Chat ToS gating for premium users
+
+- Added `chatTosAccepted` to `UserProfile` (default false) to persist one-time agreement.
+- Implemented a first-run Terms dialog in `ChatListScreen` for premium members; blocks until accepted; persisted to Firestore via `AuthRepository.setChatTosAccepted`.
+- Session guard avoids duplicate dialogs during rebuilds.
+- Improved dialog UX: bullet-point highlights and a primary FilledButton for agreement.
+
 ## 2025-09-09 Chat polish
 
 - Keep message time inside bubble; enforce min width and left-align text; timestamp anchored bottom-right.

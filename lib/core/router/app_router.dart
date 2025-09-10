@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../main.dart' show FirebaseCheckScreen; // reuse existing screen
 import '../../data/repositories/auth_repository.dart';
 import '../../features/auth/profile_screen.dart';
 import '../../features/auth/auth_screen.dart';
@@ -29,12 +28,15 @@ class _AuthRefresh extends ChangeNotifier {
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authAsync = ref.watch(authStateChangesProvider);
-  final profileAsync = ref.watch(userProfileProvider);
+  final r =
+      ref; // capture ref for reads inside redirect without re-creating router
   return GoRouter(
     navigatorKey: _rootKey,
+    initialLocation: '/rooms',
     refreshListenable: _AuthRefresh(ref),
     redirect: (context, state) {
+      final authAsync = r.read(authStateChangesProvider);
+      final profileAsync = r.read(userProfileProvider);
       final isSignedIn = authAsync.asData?.value != null;
       final loc = state.matchedLocation;
       final isAuthRoute =
@@ -64,15 +66,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       // Profile complete: avoid auth and onboarding routes
-      if (isAuthRoute || isOnboarding || loc == '/') return '/rooms';
+      if (isAuthRoute || isOnboarding) return '/rooms';
       return null;
     },
     routes: <RouteBase>[
-      GoRoute(
-        path: '/',
-        name: 'home',
-        builder: (context, state) => const FirebaseCheckScreen(),
-      ),
+      // Root path is not used as an entry since we set initialLocation.
       // Combined auth
       GoRoute(
         path: '/auth',

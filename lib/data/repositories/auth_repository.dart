@@ -80,6 +80,12 @@ class AuthRepository {
   }) async {
     return _storageRepository.uploadUserAvatar(uid: uid, file: File(filePath));
   }
+
+  Future<void> setChatTosAccepted({required String uid}) async {
+    await _firestore.collection('users').doc(uid).update({
+      'chatTosAccepted': true,
+    });
+  }
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

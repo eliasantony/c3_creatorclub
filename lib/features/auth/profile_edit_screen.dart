@@ -102,7 +102,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                     child: InkWell(
                       onTap: _pickAvatar,
                       child: CircleAvatar(
-                        radius: 42,
+                        radius: 80,
                         backgroundImage: _avatar != null
                             ? FileImage(_avatar!)
                             : (profile.photoUrl != null
@@ -115,20 +115,20 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   TextFormField(
                     controller: _name,
                     decoration: const InputDecoration(labelText: 'Name'),
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   TextFormField(
                     controller: _phone,
                     decoration: const InputDecoration(labelText: 'Phone'),
                     keyboardType: TextInputType.phone,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: _profession,
                     decoration: const InputDecoration(labelText: 'Profession'),
@@ -153,7 +153,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                     ],
                     onChanged: (v) => setState(() => _profession = v),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   TextFormField(
                     controller: _niche,
                     decoration: const InputDecoration(

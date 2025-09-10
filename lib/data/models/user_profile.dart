@@ -17,6 +17,7 @@ abstract class UserProfile with _$UserProfile {
     String? photoUrl,
     @Default('basic') String membershipTier, // 'basic' | 'premium'
     String? stripeCustomerId,
+    @Default(false) bool chatTosAccepted,
   }) = _UserProfile;
 
   factory UserProfile.fromJson(Map<String, dynamic> json) =>

@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'image_gallery_screen.dart';
 
 import '../../data/models/room.dart';
 import '../bookings/widgets/slot_grid.dart';
@@ -68,48 +69,48 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                       if ((room.description ?? '').isNotEmpty)
                         Text(room.description!, style: text.bodyMedium),
                       const SizedBox(height: 12),
-                        SizedBox(
+                      SizedBox(
                         height: 40,
                         child: ListView(
                           scrollDirection: Axis.horizontal,
                           children: [
-                          if ((room.neighborhood ?? '').isNotEmpty)
-                            Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: Chip(
-                              avatar: const Icon(
-                              Icons.location_on_outlined,
-                              size: 18,
+                            if ((room.neighborhood ?? '').isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: Chip(
+                                  avatar: const Icon(
+                                    Icons.location_on_outlined,
+                                    size: 18,
+                                  ),
+                                  label: Text(room.neighborhood!),
+                                  visualDensity: VisualDensity.compact,
+                                ),
                               ),
-                              label: Text(room.neighborhood!),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            ),
-                          if (room.capacity != null)
-                            Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: Chip(
-                              avatar: const Icon(
-                              Icons.group_outlined,
-                              size: 18,
+                            if (room.capacity != null)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: Chip(
+                                  avatar: const Icon(
+                                    Icons.group_outlined,
+                                    size: 18,
+                                  ),
+                                  label: Text('${room.capacity} people'),
+                                  visualDensity: VisualDensity.compact,
+                                ),
                               ),
-                              label: Text('${room.capacity} people'),
-                              visualDensity: VisualDensity.compact,
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: Chip(
+                                avatar: const Icon(Icons.schedule, size: 18),
+                                label: Text(
+                                  '${startHour.toString().padLeft(2, '0')}:00 – ${endHour.toString().padLeft(2, '0')}:00',
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              ),
                             ),
-                            ),
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: Chip(
-                            avatar: const Icon(Icons.schedule, size: 18),
-                            label: Text(
-                              '${startHour.toString().padLeft(2, '0')}:00 – ${endHour.toString().padLeft(2, '0')}:00',
-                            ),
-                            visualDensity: VisualDensity.compact,
-                            ),
-                          ),
                           ],
                         ),
-                        ),
+                      ),
                       const SizedBox(height: 20),
                       Text(
                         'Amenities',
@@ -319,7 +320,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
 
 // ---- header, grid, calendar (unchanged) ----
 
-class _HeaderImages extends StatelessWidget {
+class _HeaderImages extends StatefulWidget {
   const _HeaderImages({
     required this.photos,
     required this.title,
@@ -333,6 +334,26 @@ class _HeaderImages extends StatelessWidget {
   final String? neighborhood;
   final double? rating;
   final int? priceCents;
+
+  @override
+  State<_HeaderImages> createState() => _HeaderImagesState();
+}
+
+class _HeaderImagesState extends State<_HeaderImages> {
+  late final PageController _pageController;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 1.0);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -364,12 +385,15 @@ class _HeaderImages extends StatelessWidget {
           return Stack(
             fit: StackFit.expand,
             children: [
-              // image
+              // image pager
               PageView.builder(
-                itemCount: photos.isNotEmpty ? photos.length : 1,
-                controller: PageController(viewportFraction: 1.0),
+                itemCount: widget.photos.isNotEmpty ? widget.photos.length : 1,
+                controller: _pageController,
+                onPageChanged: (i) => setState(() => _currentIndex = i),
                 itemBuilder: (context, index) {
-                  final photo = photos.isNotEmpty ? photos[index] : null;
+                  final photo = widget.photos.isNotEmpty
+                      ? widget.photos[index]
+                      : null;
                   return photo != null
                       ? CachedNetworkImage(imageUrl: photo, fit: BoxFit.cover)
                       : Container(color: scheme.surfaceContainerHighest);
@@ -389,6 +413,30 @@ class _HeaderImages extends StatelessWidget {
                   ),
                 ),
               ),
+              // top transparent tap layer to open gallery
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () {
+                    final current = _currentIndex;
+                    final photos = widget.photos;
+                    if (photos.isEmpty) return;
+                    debugPrint(
+                      '[Gallery] open index=$current of ${photos.length}',
+                    );
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ImageGalleryScreen(
+                          photos: photos,
+                          initialIndex: current.clamp(0, photos.length - 1),
+                          title: widget.title,
+                        ),
+                        fullscreenDialog: true,
+                      ),
+                    );
+                  },
+                ),
+              ),
               // Title shown only when expanded (fade out as it collapses)
               Positioned(
                 left: 16,
@@ -399,7 +447,7 @@ class _HeaderImages extends StatelessWidget {
                   child: Opacity(
                     opacity: (1 - t).clamp(0, 1),
                     child: Text(
-                      title,
+                      widget.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.headlineSmall?.copyWith(
@@ -420,19 +468,20 @@ class _HeaderImages extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (rating != null)
+                    if (widget.rating != null)
                       _Pill(
                         icon: Icons.star_rounded,
                         iconColor: Colors.amber,
-                        label: rating!.toStringAsFixed(1),
+                        label: widget.rating!.toStringAsFixed(1),
                         bg: scheme.surface.withOpacity(0.85),
                         fg: scheme.onSurface,
                       ),
                     const SizedBox(width: 8),
-                    if (priceCents != null)
+                    if (widget.priceCents != null)
                       _Pill(
                         icon: Icons.euro_rounded,
-                        label: '${(priceCents! / 100).toStringAsFixed(0)}/h',
+                        label:
+                            '${(widget.priceCents! / 100).toStringAsFixed(0)} / h',
                         bg: scheme.primary,
                         fg: scheme.onPrimary,
                       ),

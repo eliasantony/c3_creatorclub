@@ -213,7 +213,11 @@ class _HeaderTexts extends StatelessWidget {
         Align(
           alignment: Alignment.centerLeft,
           child: Chip(
-            label: Text(tier),
+            label: Text(
+              tier.isNotEmpty
+                  ? tier[0].toUpperCase() + tier.substring(1)
+                  : tier,
+            ),
             avatar: const Icon(Icons.workspace_premium, size: 18),
             visualDensity: VisualDensity.compact,
           ),
@@ -356,7 +360,11 @@ class _InfoCard extends StatelessWidget {
                 _Divider(scheme: scheme),
                 _KVTile(
                   label: 'Tier',
-                  value: (p?.membershipTier as String?) ?? '—',
+                  value: ((p?.membershipTier as String?) ?? '—').isNotEmpty
+                      ? ((p?.membershipTier as String?) ?? '—')[0]
+                                .toUpperCase() +
+                            ((p?.membershipTier as String?) ?? '—').substring(1)
+                      : '—',
                   icon: Icons.workspace_premium_outlined,
                 ),
               ],
@@ -414,6 +422,19 @@ class _ActionsCard extends StatelessWidget {
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.all(8.0),
+            child: OutlinedButton.icon(
+              onPressed: () => showAboutDialog(
+                context: context,
+                applicationName: 'Creator Club',
+                applicationVersion: '1.0.0',
+                applicationLegalese: '© 2024 Place Media',
+              ),
+              icon: const Icon(Icons.info_outline),
+              label: const Text('About'),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 8.0),
             child: FilledButton.icon(
               onPressed: onSignOut,
               icon: const Icon(Icons.logout),
@@ -424,19 +445,6 @@ class _ActionsCard extends StatelessWidget {
                   scheme.onErrorContainer,
                 ),
               ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: OutlinedButton.icon(
-              onPressed: () => showAboutDialog(
-                context: context,
-                applicationName: 'Creator Club',
-                applicationVersion: '1.0.0',
-                applicationLegalese: '© 2024 Place Media',
-              ),
-              icon: const Icon(Icons.info_outline),
-              label: const Text('About'),
             ),
           ),
           const SizedBox(height: 8),

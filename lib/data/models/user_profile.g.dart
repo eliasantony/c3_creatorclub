@@ -16,6 +16,7 @@ _UserProfile _$UserProfileFromJson(Map<String, dynamic> json) => _UserProfile(
   photoUrl: json['photoUrl'] as String?,
   membershipTier: json['membershipTier'] as String? ?? 'basic',
   stripeCustomerId: json['stripeCustomerId'] as String?,
+  chatTosAccepted: json['chatTosAccepted'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$UserProfileToJson(_UserProfile instance) =>
@@ -29,4 +30,5 @@ Map<String, dynamic> _$UserProfileToJson(_UserProfile instance) =>
       'photoUrl': instance.photoUrl,
       'membershipTier': instance.membershipTier,
       'stripeCustomerId': instance.stripeCustomerId,
+      'chatTosAccepted': instance.chatTosAccepted,
     };
