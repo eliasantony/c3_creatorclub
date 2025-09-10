@@ -14,6 +14,7 @@ import '../../data/models/group.dart';
 import '../../data/models/user_profile.dart';
 // membership imported below already
 import '../../features/membership/membership_screen.dart';
+import '../../features/bookings/booking_detail_screen.dart';
 
 final GlobalKey<NavigatorState> _rootKey = GlobalKey<NavigatorState>(
   debugLabel: 'root',
@@ -138,6 +139,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/membership',
         name: 'membership',
         builder: (context, state) => const MembershipScreen(),
+      ),
+      GoRoute(
+        path: '/booking/confirm',
+        name: 'booking_confirm',
+        builder: (context, state) {
+          final extra = state.extra;
+          if (extra is BookingDetailArgs) {
+            return BookingDetailScreen(args: extra);
+          }
+          // Fallback: show simple error
+          return const Scaffold(
+            body: Center(child: Text('Missing booking details')),
+          );
+        },
       ),
     ],
   );

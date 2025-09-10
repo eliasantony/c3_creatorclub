@@ -1,10 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:go_router/go_router.dart';
 import 'image_gallery_screen.dart';
 
 import '../../data/models/room.dart';
 import '../bookings/widgets/slot_grid.dart';
+import '../bookings/booking_detail_screen.dart';
 
 class RoomDetailScreen extends StatefulWidget {
   const RoomDetailScreen({super.key, required this.room});
@@ -218,18 +220,36 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                 });
               },
               onBook: () {
-                final info = _finalBookingInfo(
-                  day: _selectedDay,
-                  startHour: startHour,
-                  startIndex: _selectedStartSlotIdx!,
-                  endIndex: _selectedEndSlotIdx!,
-                  priceCentsPerHour: room.priceCents,
+                // Compute start/end DateTimes
+                final startTod = _indexToTimeOfDay(
+                  startHour,
+                  _selectedStartSlotIdx!,
                 );
-                debugPrint('[BOOK] $info');
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Booked: $info'),
-                    behavior: SnackBarBehavior.floating,
+                final endTod = _indexToTimeOfDay(
+                  startHour,
+                  _selectedEndSlotIdx!,
+                );
+                final startDt = DateTime(
+                  _selectedDay.year,
+                  _selectedDay.month,
+                  _selectedDay.day,
+                  startTod.hour,
+                  startTod.minute,
+                );
+                final endDt = DateTime(
+                  _selectedDay.year,
+                  _selectedDay.month,
+                  _selectedDay.day,
+                  endTod.hour,
+                  endTod.minute,
+                );
+                // Navigate to booking confirm screen
+                context.push(
+                  '/booking/confirm',
+                  extra: BookingDetailArgs(
+                    room: room,
+                    startAt: startDt,
+                    endAt: endDt,
                   ),
                 );
               },
@@ -276,40 +296,10 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     return _PriceLabel('€${euros.toStringAsFixed(2)}');
   }
 
-  String _finalBookingInfo({
-    required DateTime day,
-    required int startHour,
-    required int startIndex,
-    required int endIndex,
-    required int? priceCentsPerHour,
-  }) {
-    final startTod = _indexToTimeOfDay(startHour, startIndex);
-    final endTod = _indexToTimeOfDay(startHour, endIndex);
-    final startDt = DateTime(
-      day.year,
-      day.month,
-      day.day,
-      startTod.hour,
-      startTod.minute,
-    );
-    final endDt = DateTime(
-      day.year,
-      day.month,
-      day.day,
-      endTod.hour,
-      endTod.minute,
-    );
-    final hours = (endIndex - startIndex).abs() / 2.0;
-    final euros = priceCentsPerHour == null
-        ? 0
-        : (priceCentsPerHour * hours) / 100.0;
-    return '${_dayLabel(day)} • ${_fmt(startDt)}–${_fmt(endDt)} • ${hours.toStringAsFixed(hours == hours.roundToDouble() ? 0 : 1)}h • €${euros.toStringAsFixed(2)}';
-  }
+  // removed unused _finalBookingInfo helper after navigation to confirm screen
 
   String _dayLabel(DateTime d) =>
       '${_wday[d.weekday]}, ${_mon[d.month]} ${d.day}';
-  String _fmt(DateTime dt) =>
-      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
   TimeOfDay _indexToTimeOfDay(int startHour, int index) {
     final hour = startHour + (index ~/ 2);
@@ -421,9 +411,6 @@ class _HeaderImagesState extends State<_HeaderImages> {
                     final current = _currentIndex;
                     final photos = widget.photos;
                     if (photos.isEmpty) return;
-                    debugPrint(
-                      '[Gallery] open index=$current of ${photos.length}',
-                    );
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => ImageGalleryScreen(
