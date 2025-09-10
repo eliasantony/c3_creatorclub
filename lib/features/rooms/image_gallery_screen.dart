@@ -69,12 +69,6 @@ class _ImageGalleryScreenState extends State<ImageGalleryScreen> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-        ],
       ),
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
