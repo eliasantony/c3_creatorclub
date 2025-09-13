@@ -46,7 +46,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           password: _password.text,
           name: _name.text.trim().isEmpty ? 'Creator' : _name.text.trim(),
         );
-        
+
         if (!mounted) return;
         // Send to onboarding
         context.go('/onboarding');
@@ -227,6 +227,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                   _isLogin
                                       ? "Don't have an account? Sign up"
                                       : 'Already have an account? Login.',
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimary,
+                                  ),
                                 ),
                               ),
                             ],

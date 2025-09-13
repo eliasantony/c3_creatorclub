@@ -7,16 +7,34 @@ import 'image_gallery_screen.dart';
 import '../../data/models/room.dart';
 import '../bookings/widgets/slot_grid.dart';
 import '../bookings/booking_detail_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/repositories/slots_repository.dart';
+import '../membership/membership_screen.dart';
 
-class RoomDetailScreen extends StatefulWidget {
+// Stream provider for disabled (locked/booked) slot indices on a given day
+final _disabledSlotsProvider =
+    StreamProvider.family<Set<int>, ({String roomId, DateTime day})>((
+      ref,
+      key,
+    ) {
+      final repo = ref.watch(slotsRepositoryProvider);
+      String yyyymmdd(DateTime d) =>
+          '${d.year.toString().padLeft(4, '0')}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
+      return repo.watchDisabledIndices(
+        roomId: key.roomId,
+        yyyymmdd: yyyymmdd(key.day),
+      );
+    });
+
+class RoomDetailScreen extends ConsumerStatefulWidget {
   const RoomDetailScreen({super.key, required this.room});
   final Room room;
 
   @override
-  State<RoomDetailScreen> createState() => _RoomDetailScreenState();
+  ConsumerState<RoomDetailScreen> createState() => _RoomDetailScreenState();
 }
 
-class _RoomDetailScreenState extends State<RoomDetailScreen> {
+class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
   bool _showTimes = false;
@@ -25,10 +43,33 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
   int? _selectedEndSlotIdx; // exclusive
 
   static const int _maxSlots = 6; // 3h max (6 * 30min)
+  Set<int> _disabledSlots = {};
+
+  String _yyyymmdd(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
+
+  Future<void> _loadDisabled(DateTime day) async {
+    final repo = ref.read(slotsRepositoryProvider);
+    final set = await repo.fetchDisabledIndices(
+      roomId: widget.room.id,
+      yyyymmdd: _yyyymmdd(day),
+    );
+    if (!mounted) return;
+    setState(() => _disabledSlots = set);
+  }
 
   @override
   Widget build(BuildContext context) {
     final room = widget.room;
+    // watch realtime disabled slots for selected day
+    ref.listen<AsyncValue<Set<int>>>(
+      _disabledSlotsProvider((roomId: room.id, day: _selectedDay)),
+      (previous, next) {
+        next.whenData((value) {
+          if (mounted) setState(() => _disabledSlots = value);
+        });
+      },
+    );
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final text = theme.textTheme;
@@ -43,12 +84,15 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
       startIndex: _selectedStartSlotIdx,
       endIndex: _selectedEndSlotIdx,
     );
-    final priceInfo = _priceSummary(
-      priceCentsPerHour: room.priceCents,
-      startIndex: _selectedStartSlotIdx,
-      endIndex: _selectedEndSlotIdx,
-    );
-    final canBook = selection != null && priceInfo != null;
+    final isPremium = ref.watch(isPremiumProvider);
+    final priceInfo = isPremium
+        ? null
+        : _priceSummary(
+            priceCentsPerHour: room.priceCents,
+            startIndex: _selectedStartSlotIdx,
+            endIndex: _selectedEndSlotIdx,
+          );
+    final canBook = selection != null && (isPremium || priceInfo != null);
 
     return Scaffold(
       body: Stack(
@@ -152,6 +196,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                                 startIndex: _selectedStartSlotIdx,
                                 endIndex: _selectedEndSlotIdx,
                                 maxSlots: _maxSlots,
+                                extraDisabled: _disabledSlots,
                                 onSelectionChanged: (s, e, clamped) {
                                   if (clamped) {
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -190,6 +235,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                                     _focusedDay = focusedDay;
                                     _showTimes = true;
                                   });
+                                  _loadDisabled(selectedDay);
                                 },
                               ),
                       ),
@@ -211,7 +257,9 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
             bottom: 0,
             child: _BookingBar(
               selectionText: selection?.label,
-              priceText: priceInfo?.label,
+              priceText: selection != null
+                  ? (isPremium ? 'Included with Premium' : priceInfo?.label)
+                  : null,
               enabled: canBook,
               onClear: () {
                 setState(() {
@@ -219,7 +267,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                   _selectedEndSlotIdx = null;
                 });
               },
-              onBook: () {
+              onBook: () async {
                 // Compute start/end DateTimes
                 final startTod = _indexToTimeOfDay(
                   startHour,
@@ -243,6 +291,38 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                   endTod.hour,
                   endTod.minute,
                 );
+                // Fast lock range with single callable
+                try {
+                  final yyyymmdd = _yyyymmdd(_selectedDay);
+                  final startIdx = _selectedStartSlotIdx!;
+                  final endIdx = _selectedEndSlotIdx!;
+                  final s = startIdx < endIdx ? startIdx : endIdx;
+                  final e = startIdx < endIdx ? endIdx : startIdx;
+                  final slots = [for (int i = s; i < e; i++) i];
+                  final slotsRepo = ref.read(slotsRepositoryProvider);
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (_) =>
+                        const Center(child: CircularProgressIndicator()),
+                  );
+                  await slotsRepo.lockRange(
+                    roomId: room.id,
+                    yyyymmdd: yyyymmdd,
+                    slots: slots,
+                  );
+                  if (mounted) Navigator.of(context).pop();
+                } catch (e) {
+                  debugPrint('Failed to lock slots: $e');
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Slot lock failed: $e')),
+                    );
+                  }
+                  await _loadDisabled(_selectedDay);
+                  return;
+                }
                 // Navigate to booking confirm screen
                 context.push(
                   '/booking/confirm',
@@ -307,6 +387,8 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     return TimeOfDay(hour: hour, minute: minute);
   }
 }
+
+// (removed legacy _SlotsRepoLazy bridge)
 
 // ---- header, grid, calendar (unchanged) ----
 
@@ -556,6 +638,7 @@ class _TimesSection extends StatefulWidget {
     required this.maxSlots,
     this.startIndex,
     this.endIndex,
+    this.extraDisabled = const {},
   });
 
   final DateTime selectedDay;
@@ -564,6 +647,7 @@ class _TimesSection extends StatefulWidget {
   final int maxSlots;
   final int? startIndex;
   final int? endIndex;
+  final Set<int> extraDisabled;
   final void Function(int? startIndex, int? endIndex, bool clamped)
   onSelectionChanged;
   final VoidCallback onBack;
@@ -684,11 +768,14 @@ class _TimesSectionState extends State<_TimesSection> {
           columns: 4,
           compact: true,
           // If today, disable passed slots
-          disabledIndices: _disabledTodayIndices(
-            widget.selectedDay,
-            widget.start,
-            slotsTotal,
-          ),
+          disabledIndices: {
+            ..._disabledTodayIndices(
+              widget.selectedDay,
+              widget.start,
+              slotsTotal,
+            ),
+            ...widget.extraDisabled,
+          },
         ),
       ],
     );
@@ -714,6 +801,8 @@ class _TimesSectionState extends State<_TimesSection> {
     return disabled;
   }
 }
+
+// (removed legacy SlotsRepoBridge)
 
 class _BookingBar extends StatelessWidget {
   const _BookingBar({

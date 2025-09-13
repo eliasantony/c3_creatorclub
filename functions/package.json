@@ -22,5 +22,7 @@
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
-  }
+  },
+  "main": "lib/index.js",
+  "files": ["lib", "package.json"]
 }

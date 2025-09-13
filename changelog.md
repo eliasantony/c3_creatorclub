@@ -1,45 +1,3 @@
-## 2025-09-10
-
-- Rooms: Added full-screen swipeable image gallery (`ImageGalleryScreen`) and wired it from `RoomDetailScreen` header images (tap to open). Minimal, no routing change; uses `MaterialPageRoute` from detail screen.
-
-## [Unreleased] - Add Chat ToS gating for premium users
-
-- Added `chatTosAccepted` to `UserProfile` (default false) to persist one-time agreement.
-- Implemented a first-run Terms dialog in `ChatListScreen` for premium members; blocks until accepted; persisted to Firestore via `AuthRepository.setChatTosAccepted`.
-- Session guard avoids duplicate dialogs during rebuilds.
-- Improved dialog UX: bullet-point highlights and a primary FilledButton for agreement.
-
-## 2025-09-09 Chat polish
-
-- Keep message time inside bubble; enforce min width and left-align text; timestamp anchored bottom-right.
-- Tighten spacing for grouped messages (smaller vertical gaps when group continues).
-- Fix PDF in-app preview by switching to PdfViewPinch with proper controller; add loader and error.
-- Stabilize message ordering and eliminate brief duplicate-send flicker by writing client `createdAt` and server `serverAt`; prefer `serverAt` for display.
-
-## 2025-09-04 Chat improvements
-
-- Chat UI now shows user avatars (circles) and names via resolveUser.
-- Consecutive messages are visually grouped by hiding intermediate timestamps (handled in repository).
-- Moved attach action into the composer next to send and added an attachment preview overlay above the input field.
-- Implemented reliable image (ImagePicker) and PDF (file_selector) picking and sending through StorageRepository.
-- Fixed attachment sending flow and added progress state in preview.
-
-## 2025-09-04
-
-- Added router guard to redirect signed-in users with incomplete profiles to `/onboarding` until phone, profession, niche, and avatar are set.
-- Added Storage rules (`storage.rules`) to permit users to write their avatar at `avatars/{uid}.jpg` (public read), and keep other paths denied.
-- Added combined `AuthScreen` with gradient background, glowing SVG logo, and signup-first UX with login toggle.
-- Implemented `OnboardingFlow` (two intro pages + details form for phone, niche, profession, avatar upload) and route `/onboarding`.
-- Updated router to use `/auth` as entry and skip onboarding for existing users (redirects signed-in users to `/rooms`). Legacy `/signin` and `/register` now point to combined auth.
-- Styled old `SignInScreen` to match branding; kept for back-compat.
-- Added `flutter_svg` and registered `assets/logo.svg` in `pubspec.yaml`.
-
-## 2025-09-04 (2)
-
-- Chat: Group consecutive messages by same author; only last in run shows time (others have createdAt suppressed).
-- Chat: Fixed attachment picker crash (MissingPluginException from FileType.custom). Uses image/pdf choices and platform-supported pickers.
-- Chat: Attachment action remains in AppBar due to current flutter_chat_ui API; can move beside send after upgrading to a version exposing input builders.
-
 # Changelog
 
 - Bootstrapped a new Flutter app inside the existing `c3_creatorclub` repository; configured iOS/Android bundle IDs; integrated Firebase via FlutterFire; generated `lib/firebase_options.dart`; installed `firebase_core`; implemented init screen showing project/app IDs; added `.gitignore` and pushed to GitHub. (Notes: CI draft not included; iOS CocoaPods installed and bundle ID set; Android `applicationId` updated.)
@@ -76,6 +34,35 @@
 - Chat: Live updates from other users appear instantly via Firestore snapshot -> controller sync.
 - Chat: Replaced floating attachment button with AppBar action to avoid overlapping the send button; uses File Picker for images/PDFs.
 
+## 2025-09-04 Chat improvements
+
+- Chat UI now shows user avatars (circles) and names via resolveUser.
+- Consecutive messages are visually grouped by hiding intermediate timestamps (handled in repository).
+- Moved attach action into the composer next to send and added an attachment preview overlay above the input field.
+- Implemented reliable image (ImagePicker) and PDF (file_selector) picking and sending through StorageRepository.
+- Fixed attachment sending flow and added progress state in preview.
+
+## 2025-09-04
+
+- Added router guard to redirect signed-in users with incomplete profiles to `/onboarding` until phone, profession, niche, and avatar are set.
+- Added Storage rules (`storage.rules`) to permit users to write their avatar at `avatars/{uid}.jpg` (public read), and keep other paths denied.
+- Added combined `AuthScreen` with gradient background, glowing SVG logo, and signup-first UX with login toggle.
+- Implemented `OnboardingFlow` (two intro pages + details form for phone, niche, profession, avatar upload) and route `/onboarding`.
+- Updated router to use `/auth` as entry and skip onboarding for existing users (redirects signed-in users to `/rooms`). Legacy `/signin` and `/register` now point to combined auth.
+- Styled old `SignInScreen` to match branding; kept for back-compat.
+- Added `flutter_svg` and registered `assets/logo.svg` in `pubspec.yaml`.
+
+## 2025-09-04 (2)
+
+- Chat: Group consecutive messages by same author; only last in run shows time (others have createdAt suppressed).
+- Chat: Fixed attachment picker crash (MissingPluginException from FileType.custom). Uses image/pdf choices and platform-supported pickers.
+- Chat: Attachment action remains in AppBar due to current flutter_chat_ui API; can move beside send after upgrading to a version exposing input builders.
+
+## 2025-09-12
+
+- Added Cloud Functions deployment configuration: expanded `firebase.json` to include `functions` block (source, runtime nodejs20, predeploy build/install) and created `.firebaserc` with default project `c3club-app` so `firebase deploy --only functions` works.
+- Booking UX: Added `lockSlotRange` Cloud Function for atomic multi-slot locking; repository `lockRange` method; room detail now uses single call for faster navigation; premium users no longer see price chips; realtime disabled slots via `watchDisabledIndices`; improved booking bar labeling.
+
 ## 2025-09-08 Chat refinements
 
 - Fixed iOS PDF picker (added UTI `com.adobe.pdf` to `XTypeGroup`).
@@ -92,3 +79,32 @@
 - Added file (PDF) tap handling to open externally via url_launcher (dependency added).
 - Began groundwork for embedding sender metadata hints for avatar/name fallback (userHints map) pending repository metadata support.
 - Added `url_launcher` dependency to `pubspec.yaml` for external URL opening.
+
+## 2025-09-10
+
+- Rooms: Added full-screen swipeable image gallery (`ImageGalleryScreen`) and wired it from `RoomDetailScreen` header images (tap to open). Minimal, no routing change; uses `MaterialPageRoute` from detail screen.
+
+## [Unreleased] - Add Chat ToS gating for premium users
+
+- Added `chatTosAccepted` to `UserProfile` (default false) to persist one-time agreement.
+- Implemented a first-run Terms dialog in `ChatListScreen` for premium members; blocks until accepted; persisted to Firestore via `AuthRepository.setChatTosAccepted`.
+- Session guard avoids duplicate dialogs during rebuilds.
+- Improved dialog UX: bullet-point highlights and a primary FilledButton for agreement.
+
+## 2025-09-09 Chat polish
+
+- Keep message time inside bubble; enforce min width and left-align text; timestamp anchored bottom-right.
+- Tighten spacing for grouped messages (smaller vertical gaps when group continues).
+- Fix PDF in-app preview by switching to PdfViewPinch with proper controller; add loader and error.
+- Stabilize message ordering and eliminate brief duplicate-send flicker by writing client `createdAt` and server `serverAt`; prefer `serverAt` for display.
+
+## 2025-09-13 Booking success navigation
+
+## 2025-09-13 Booking success calendar
+
+- Booking: Added "Add to Calendar" button on booking success screen using `add_2_calendar` (creates event with 30‑minute reminder). Fixed Back to home button to use GoRouter `context.go('/rooms')` for reliable navigation. Added dependency `add_2_calendar` to `pubspec.yaml`.
+
+## 2025-09-13 Booking detail view & tile
+
+- Booking: Enhanced booking list tiles with image preview, status badge inline, improved formatting, and navigation to new booking detail view screen (`/booking/:id`). Added `BookingDetailViewScreen`, route `booking_detail_view`, and extended `BookingData` (createdAt, paymentIntentId). Added `bookingProvider` for live single booking updates.
+  \n+## 2025-09-13 Booking list screen\n+\n+- Booking: Implemented `MyBookingsScreen` with upcoming and past sections using new `userSplitBookingsProvider` (streams & splits user bookings). Added `BookingData` lightweight model and repository stream helpers. Added `/bookings` route (`my_bookings`) and AppBar action on `RoomsListScreen` (event_note icon) to access bookings. Empty state encourages exploring rooms.\n\*\*\* End Patch

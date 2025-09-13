@@ -421,6 +421,15 @@ class _ActionsCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+            child: OutlinedButton.icon(
+              onPressed: () => context.push('/bookings'),
+              icon: const Icon(Icons.event_note_outlined),
+              label: const Text('My Bookings'),
+            ),
+          ),
+          // Existing About button
+          Padding(
             padding: const EdgeInsets.all(8.0),
             child: OutlinedButton.icon(
               onPressed: () => showAboutDialog(
@@ -533,21 +542,24 @@ class _Divider extends StatelessWidget {
 // ---------- Skeletons (no extra packages) -----------------------------------
 
 class _Skeleton extends StatelessWidget {
-  const _Skeleton({this.width, this.height, this.borderRadius});
+  const _Skeleton({double? width, double? height, BorderRadius? borderRadius})
+    : _width = width,
+      _height = height,
+      _borderRadius = borderRadius;
 
-  final double? width;
-  final double? height;
-  final BorderRadius? borderRadius;
+  final double? _width;
+  final double? _height;
+  final BorderRadius? _borderRadius;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      width: width,
-      height: height,
+      width: _width,
+      height: _height,
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-        borderRadius: borderRadius ?? BorderRadius.circular(6),
+        borderRadius: _borderRadius ?? BorderRadius.circular(6),
       ),
     );
   }

@@ -17,6 +17,7 @@ dependencies:
   json_annotation: ^4.9.0
   firebase_auth: ^5.3.0
   cloud_firestore: ^5.5.0
+  cloud_functions: ^5.5.0
   firebase_storage: ^12.3.2
   image_picker: ^1.1.2
   cached_network_image: ^3.3.1
@@ -28,6 +29,7 @@ dependencies:
   flutter_chat_core: ^2.8.0
   flutter_svg: ^2.0.10+1
   url_launcher: ^6.3.0
+  add_2_calendar: ^2.2.3
   provider: ^6.1.2
   pdfx: ^2.6.0
   http: ^1.2.2

@@ -15,6 +15,9 @@ import '../../data/models/user_profile.dart';
 // membership imported below already
 import '../../features/membership/membership_screen.dart';
 import '../../features/bookings/booking_detail_screen.dart';
+import '../../features/bookings/booking_success_screen.dart';
+import '../../features/bookings/booking_detail_view_screen.dart';
+import '../../features/bookings/my_bookings_screen.dart';
 
 final GlobalKey<NavigatorState> _rootKey = GlobalKey<NavigatorState>(
   debugLabel: 'root',
@@ -151,6 +154,32 @@ final routerProvider = Provider<GoRouter>((ref) {
           // Fallback: show simple error
           return const Scaffold(
             body: Center(child: Text('Missing booking details')),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/booking/success',
+        name: 'booking_success',
+        builder: (context, state) {
+          final extra = state.extra;
+          if (extra is BookingSuccessArgs) {
+            return BookingSuccessScreen(args: extra);
+          }
+          return const Scaffold(body: Center(child: Text('Booking complete')));
+        },
+      ),
+      GoRoute(
+        path: '/bookings',
+        name: 'my_bookings',
+        builder: (context, state) => const MyBookingsScreen(),
+      ),
+      GoRoute(
+        path: '/booking/:id',
+        name: 'booking_detail_view',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return BookingDetailViewScreen(
+            args: BookingDetailViewArgs(bookingId: id),
           );
         },
       ),

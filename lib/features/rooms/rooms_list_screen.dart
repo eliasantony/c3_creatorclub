@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/widgets/section_header.dart';
 import '../../data/models/room.dart';
 import '../../data/repositories/rooms_repository.dart';
@@ -13,7 +14,16 @@ class RoomsListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final roomsAsync = ref.watch(roomsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Explore Rooms')),
+      appBar: AppBar(
+        title: const Text('Explore Rooms'),
+        actions: [
+          IconButton(
+            tooltip: 'My Bookings',
+            icon: const Icon(Icons.event_note_outlined),
+            onPressed: () => context.pushNamed('my_bookings'),
+          ),
+        ],
+      ),
       body: roomsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Failed to load rooms: $e')),

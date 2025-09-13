@@ -1,7 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/repositories/slots_repository.dart';
 
 import '../../data/models/room.dart';
+import '../membership/membership_screen.dart';
+import '../../data/repositories/booking_repository.dart';
+import 'booking_success_screen.dart';
+import 'package:go_router/go_router.dart';
 
 /// Args passed via router when confirming a booking for payment.
 class BookingDetailArgs {
@@ -16,13 +22,13 @@ class BookingDetailArgs {
   final DateTime endAt;
 }
 
-class BookingDetailScreen extends StatelessWidget {
+class BookingDetailScreen extends ConsumerWidget {
   const BookingDetailScreen({super.key, required this.args});
 
   final BookingDetailArgs args;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
@@ -34,9 +40,12 @@ class BookingDetailScreen extends StatelessWidget {
     final hours = minutes / 60.0;
 
     final pricePerHourCents = room.priceCents;
-    final totalEuros = pricePerHourCents != null
-        ? (pricePerHourCents * hours) / 100.0
-        : null;
+    final isPremium = ref.watch(isPremiumProvider);
+    final totalEuros = isPremium
+        ? 0.0
+        : (pricePerHourCents != null
+              ? (pricePerHourCents * hours) / 100.0
+              : null);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Confirm booking')),
@@ -52,7 +61,13 @@ class BookingDetailScreen extends StatelessWidget {
                 '${_two(start.hour)}:${_two(start.minute)} – ${_two(end.hour)}:${_two(end.minute)}  •  ${_fmtHours(hours)}',
           ),
           const SizedBox(height: 8),
-          if (pricePerHourCents != null) ...[
+          if (isPremium) ...[
+            _SummaryTile(
+              icon: Icons.workspace_premium_outlined,
+              title: 'Membership',
+              subtitle: 'Included with Premium – no charge',
+            ),
+          ] else if (pricePerHourCents != null) ...[
             _SummaryTile(
               icon: Icons.attach_money_rounded,
               title: 'Price',
@@ -103,39 +118,119 @@ class BookingDetailScreen extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    Text(
-                      totalEuros != null
-                          ? 'Total €${totalEuros.toStringAsFixed(2)}'
-                          : 'Price shown at payment',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: scheme.primary,
-                        fontWeight: FontWeight.w700,
+                    if (isPremium)
+                      Text(
+                        'Included with Premium',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: scheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    else
+                      Text(
+                        totalEuros != null
+                            ? 'Total €${totalEuros.toStringAsFixed(2)}'
+                            : 'Price shown at payment',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: scheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
               const SizedBox(width: 12),
               FilledButton.icon(
                 onPressed: () async {
-                  // TODO: Integrate Stripe PaymentSheet/Checkout via Functions
                   final messenger = ScaffoldMessenger.of(context);
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (ctx) =>
-                        const Center(child: CircularProgressIndicator()),
-                  );
-                  await Future.delayed(const Duration(seconds: 1));
-                  if (context.mounted) Navigator.of(context).pop();
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Payment flow coming soon (Stripe)'),
-                    ),
-                  );
+                  if (isPremium) {
+                    // Premium: create booking immediately without payment
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (ctx) =>
+                          const Center(child: CircularProgressIndicator()),
+                    );
+                    try {
+                      final repo = ref.read(bookingRepositoryProvider);
+                      final bookingId = await repo.createBooking(
+                        roomId: room.id,
+                        startAt: start,
+                        endAt: end,
+                        priceCents: 0,
+                        status: 'confirmed',
+                      );
+                      // Mark slots as booked now that booking is confirmed
+                      final slotsRepo = ref.read(slotsRepositoryProvider);
+                      String yyyymmdd(DateTime d) =>
+                          '${d.year.toString().padLeft(4, '0')}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
+                      int idxFrom(DateTime dt, int startHour) {
+                        final base = (dt.hour - startHour) * 2;
+                        return base + (dt.minute >= 30 ? 1 : 0);
+                      }
+
+                      final startHour = room.openHourStart ?? 6;
+                      final a = idxFrom(start, startHour);
+                      final b = idxFrom(end, startHour);
+                      final s = a < b ? a : b;
+                      final e = a < b ? b : a;
+                      final ymd = yyyymmdd(start);
+                      for (int i = s; i < e; i++) {
+                        await slotsRepo.markBooked(
+                          roomId: room.id,
+                          yyyymmdd: ymd,
+                          slotId: i.toString(),
+                        );
+                      }
+                      if (context.mounted) Navigator.of(context).pop();
+                      if (context.mounted) {
+                        // Use GoRouter named route so deep-linking & state restoration work
+                        context.goNamed(
+                          'booking_success',
+                          extra: BookingSuccessArgs(
+                            room: room,
+                            startAt: start,
+                            endAt: end,
+                            bookingId: bookingId,
+                            isPremium: true,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      debugPrint('Failed to create booking: $e');
+                      if (context.mounted) Navigator.of(context).pop();
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Failed to book: $e')),
+                      );
+                    }
+                  } else {
+                    // TODO: Integrate Stripe PaymentSheet/Checkout via Functions
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (ctx) =>
+                          const Center(child: CircularProgressIndicator()),
+                    );
+                    await Future.delayed(const Duration(seconds: 1));
+                    if (context.mounted) Navigator.of(context).pop();
+                    if (context.mounted) {
+                      context.goNamed(
+                        'booking_success',
+                        extra: BookingSuccessArgs(
+                          room: room,
+                          startAt: start,
+                          endAt: end,
+                          bookingId: 'demo',
+                          isPremium: false,
+                        ),
+                      );
+                    }
+                  }
                 },
-                icon: const Icon(Icons.lock_outline),
-                label: const Text('Pay now'),
+                icon: Icon(
+                  isPremium ? Icons.check_circle_outline : Icons.lock_outline,
+                ),
+                label: Text(isPremium ? 'Confirm booking' : 'Pay now'),
               ),
             ],
           ),

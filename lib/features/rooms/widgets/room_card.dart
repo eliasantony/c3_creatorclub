@@ -1,23 +1,25 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/room.dart';
+import '../../membership/membership_screen.dart';
 
-class RoomCard extends StatelessWidget {
+class RoomCard extends ConsumerWidget {
   const RoomCard({super.key, required this.room, this.onTap});
   final Room room;
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final text = theme.textTheme;
 
-    final radius = _cardRadius(theme) ?? 12.0;
-    final borderRadius = BorderRadius.circular(radius);
+    // Card corner radius handled by theme; previous dynamic radius logic removed.
 
     final hasPhoto = room.photos.isNotEmpty && (room.photos.first).isNotEmpty;
-    final priceText = room.priceCents != null
+    final isPremium = ref.watch(isPremiumProvider);
+    final priceText = (!isPremium && room.priceCents != null)
         ? '€${(room.priceCents! / 100).toStringAsFixed(0)}'
         : null;
     final ratingText = room.rating?.toStringAsFixed(1);
@@ -153,18 +155,6 @@ class RoomCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  // Pull preferred corner radius from the theme if possible
-  double? _cardRadius(ThemeData theme) {
-    final shape = theme.cardTheme.shape;
-    if (shape is RoundedRectangleBorder) {
-      final r = shape.borderRadius;
-      if (r is BorderRadius) {
-        return r.topLeft.x;
-      }
-    }
-    return null;
   }
 
   Widget _imageFallback(ColorScheme scheme) {
