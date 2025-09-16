@@ -80,7 +80,7 @@ class BookingSuccessScreen extends ConsumerWidget {
               subtitle: Text(args.bookingId),
             ),
           ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 8),
           FilledButton.tonalIcon(
             onPressed: () async {
               final event = Event(
@@ -107,12 +107,18 @@ class BookingSuccessScreen extends ConsumerWidget {
             icon: const Icon(Icons.event_available_outlined),
             label: const Text('Add to Calendar'),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          const Divider(),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => context.push('/bookings'),
+            icon: const Icon(Icons.event_note_outlined),
+            label: const Text('View My Bookings'),
+          ),
+          const SizedBox(height: 8),
           FilledButton.icon(
             onPressed: () {
-              // Ensure we navigate back to the rooms root via GoRouter to rebuild shell
               if (Navigator.of(context).canPop()) {
-                // Pop intermediate routes then go to rooms
                 context.go('/rooms');
               } else {
                 context.go('/rooms');

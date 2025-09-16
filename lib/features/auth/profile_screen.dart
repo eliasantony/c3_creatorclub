@@ -2,9 +2,12 @@ import 'package:c3_creatorclub/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/config_repository.dart';
+import '../../data/repositories/payment_repository.dart';
 // If AppTokens is in another file, import it so we can read theme extensions.
 // import '../../theme/app_theme.dart'; // make sure AppTokens is visible
 
@@ -325,8 +328,6 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(tokens.radiusSmall);
-
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -420,8 +421,71 @@ class _ActionsCard extends StatelessWidget {
             text: text,
           ),
           const SizedBox(height: 8),
+          // Manage subscription (shown if premium tier)
+          Consumer(
+            builder: (context, ref, _) {
+              final user = ref.watch(userProfileProvider).value;
+              final isPremium = (user?.membershipTier ?? 'basic') == 'premium';
+              if (!isPremium) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    try {
+                      final pricing = await ref.read(
+                        pricingConfigProvider.future,
+                      );
+                      final originBase = Uri.base;
+                      final schemeOk =
+                          originBase.scheme == 'http' ||
+                          originBase.scheme == 'https';
+                      final origin = schemeOk
+                          ? '${originBase.scheme}://${originBase.authority}'
+                          : (pricing?.checkoutBaseUrl ?? 'https://example.com');
+                      final portalUrl = await ref
+                          .read(paymentRepositoryProvider)
+                          .createBillingPortalSession(
+                            returnUrl: '$origin/membership',
+                          );
+                      final uri = Uri.parse(portalUrl);
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(
+                          uri,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      } else {
+                        throw Exception('Cannot launch portal');
+                      }
+                    } catch (e) {
+                      debugPrint('Error opening portal: $e');
+                      final es = e.toString();
+                      String msg;
+                      if (es.contains('Billing Portal not configured')) {
+                        msg = 'Portal not configured (Stripe dashboard)';
+                      } else if (es.contains(
+                        'Stripe Billing Portal not configured',
+                      )) {
+                        msg =
+                            'Enable & save Billing Portal settings in Stripe test mode, then retry.';
+                      } else if (es.contains('failed-precondition')) {
+                        msg =
+                            'Subscription/customer not ready yet. Retry shortly.';
+                      } else {
+                        msg = 'Portal error: $e';
+                      }
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(msg)));
+                    }
+                  },
+                  icon: const Icon(Icons.manage_accounts_outlined),
+                  label: const Text('Manage Subscription'),
+                ),
+              );
+            },
+          ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
             child: OutlinedButton.icon(
               onPressed: () => context.push('/bookings'),
               icon: const Icon(Icons.event_note_outlined),

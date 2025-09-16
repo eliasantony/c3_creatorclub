@@ -29,12 +29,30 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   bool _saving = false;
 
   @override
+  void initState() {
+    super.initState();
+    _phone.addListener(_onFieldsChanged);
+    _niche.addListener(_onFieldsChanged);
+  }
+
+  @override
   void dispose() {
     _page.dispose();
     _phone.dispose();
     _niche.dispose();
     super.dispose();
   }
+
+  void _onFieldsChanged() {
+    // Trigger rebuild so the Finish button enable state updates.
+    setState(() {});
+  }
+
+  bool get _canSubmit =>
+      _phone.text.trim().isNotEmpty &&
+      _niche.text.trim().isNotEmpty &&
+      _profession != null &&
+      _profession!.isNotEmpty;
 
   Future<void> _pickAvatar() async {
     final img = await ImagePicker().pickImage(
@@ -131,6 +149,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                     avatar: _avatar,
                     onPickAvatar: _pickAvatar,
                     onComplete: _complete,
+                    canSubmit: _canSubmit,
                     saving: _saving,
                   ),
                 ],
@@ -222,6 +241,7 @@ class _DetailsPage extends StatelessWidget {
     required this.avatar,
     required this.onPickAvatar,
     required this.onComplete,
+    required this.canSubmit,
     required this.saving,
   });
 
@@ -233,6 +253,8 @@ class _DetailsPage extends StatelessWidget {
   final File? avatar;
   final VoidCallback onPickAvatar;
   final VoidCallback onComplete;
+  final bool
+  canSubmit; // Derived in parent: phone, niche, profession must be set
   final bool saving;
 
   @override
@@ -268,6 +290,9 @@ class _DetailsPage extends StatelessWidget {
                   textInputAction: TextInputAction.next,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(labelText: 'Phone number'),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Phone number required'
+                      : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -275,6 +300,8 @@ class _DetailsPage extends StatelessWidget {
                   decoration: const InputDecoration(
                     labelText: 'Niche (e.g., Comedy)',
                   ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Niche required' : null,
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
@@ -308,12 +335,14 @@ class _DetailsPage extends StatelessWidget {
                     DropdownMenuItem(value: 'Other', child: Text('Other')),
                   ],
                   onChanged: onProfessionChanged,
+                  validator: (v) =>
+                      (v == null || v.isEmpty) ? 'Profession required' : null,
                 ),
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: saving ? null : onComplete,
+                    onPressed: saving || !canSubmit ? null : onComplete,
                     child: saving
                         ? const SizedBox(
                             height: 20,

@@ -8,6 +8,10 @@ import '../membership/membership_screen.dart';
 import '../../data/repositories/booking_repository.dart';
 import 'booking_success_screen.dart';
 import 'package:go_router/go_router.dart';
+import '../../data/repositories/payment_repository.dart';
+import 'package:flutter_stripe/flutter_stripe.dart' as stripe;
+// Removed auth_repository import (no direct firestore access in this screen post refactor)
+import 'booking_processing_screen.dart';
 
 /// Args passed via router when confirming a booking for payment.
 class BookingDetailArgs {
@@ -204,25 +208,74 @@ class BookingDetailScreen extends ConsumerWidget {
                       );
                     }
                   } else {
-                    // TODO: Integrate Stripe PaymentSheet/Checkout via Functions
+                    // Basic user: create PaymentIntent then present PaymentSheet.
                     showDialog(
                       context: context,
                       barrierDismissible: false,
-                      builder: (ctx) =>
+                      builder: (_) =>
                           const Center(child: CircularProgressIndicator()),
                     );
-                    await Future.delayed(const Duration(seconds: 1));
-                    if (context.mounted) Navigator.of(context).pop();
-                    if (context.mounted) {
-                      context.goNamed(
-                        'booking_success',
-                        extra: BookingSuccessArgs(
-                          room: room,
-                          startAt: start,
-                          endAt: end,
-                          bookingId: 'demo',
-                          isPremium: false,
+                    try {
+                      final amountCents = pricePerHourCents != null
+                          ? (pricePerHourCents * hours).round()
+                          : 0;
+                      final payRepo = ref.read(paymentRepositoryProvider);
+                      String yyyymmdd(DateTime d) =>
+                          '${d.year.toString().padLeft(4, '0')}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
+                      int idxFrom(DateTime dt, int startHour) {
+                        final base = (dt.hour - startHour) * 2;
+                        return base + (dt.minute >= 30 ? 1 : 0);
+                      }
+
+                      final startHour = room.openHourStart ?? 6;
+                      final a = idxFrom(start, startHour);
+                      final b = idxFrom(end, startHour);
+                      final s = a < b ? a : b;
+                      final e = a < b ? b : a;
+                      final slotIndices = [for (int i = s; i < e; i++) i];
+                      final intent = await payRepo.createBookingIntent(
+                        roomId: room.id,
+                        startAt: start,
+                        endAt: end,
+                        amountCents: amountCents,
+                        slotIndices: slotIndices,
+                        yyyymmdd: yyyymmdd(start),
+                        openHourStart: startHour,
+                      );
+                      await stripe.Stripe.instance.initPaymentSheet(
+                        paymentSheetParameters:
+                            stripe.SetupPaymentSheetParameters(
+                              merchantDisplayName: 'Creator Club',
+                              paymentIntentClientSecret: intent.clientSecret,
+                            ),
+                      );
+                      if (context.mounted) Navigator.of(context).pop();
+                      await stripe.Stripe.instance.presentPaymentSheet();
+                      if (!context.mounted) return;
+                      final bookingId = await context.pushNamed<String>(
+                        'booking_processing',
+                        extra: BookingProcessingArgs(
+                          paymentIntentId: intent.paymentIntentId,
+                          roomName: room.name,
                         ),
+                      );
+                      if (bookingId != null && context.mounted) {
+                        context.goNamed(
+                          'booking_success',
+                          extra: BookingSuccessArgs(
+                            room: room,
+                            startAt: start,
+                            endAt: end,
+                            bookingId: bookingId,
+                            isPremium: false,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      debugPrint('Payment failed: $e');
+                      if (context.mounted) Navigator.of(context).pop();
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Payment failed: $e')),
                       );
                     }
                   }

@@ -22,23 +22,38 @@ service cloud.firestore {
       allow update, delete: if isSelf(userId) || isAdmin();
     }
 
+    // Public app configuration (e.g., dynamic pricing). Admins manage, everyone can read.
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Memberships: managed by server (Functions); users can read own
     match /memberships/{userId} {
       allow read: if isSelf(userId) || isAdmin();
       allow write: if isAdmin();
     }
 
-    // Bookings: users can create/manage their own bookings; admins manage all
+    // Bookings:
+    // - Premium users can create confirmed (priceCents may be 0) directly.
+    // - Non-premium must NOT create confirmed without paymentIntentId.
+    // - Webhook/server (admin context) may create any.
     match /bookings/{bookingId} {
       allow read: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid && (
+        // Premium direct confirm
+        (isPremium() && request.resource.data.status == 'confirmed') ||
+        // Pending payment placeholder (optional future) OR confirmed with payment intent
+        (request.resource.data.status in ['pending_payment', 'confirmed'] && request.resource.data.paymentIntentId is string)
+      );
       allow update, delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
     // Room slots: Functions only (prevent client-side slot manipulation)
     match /roomSlots/{roomId}/{yyyymmdd}/{slotId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      // Prevent client writes; only Functions (with admin privileges) should modify.
+      allow write: if false;
     }
 
     // Groups: chat groups metadata

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>Checkout Canceled</title>
+	<style>
+		:root { color-scheme: light dark; }
+		body { font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; margin:40px; max-width:640px; line-height:1.4; }
+		h1 { color:#3533CD; }
+		.card { border:1px solid #ccc; padding:24px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,.05); }
+		a.button { display:inline-block; background:#3533CD; color:#fff; padding:12px 20px; border-radius:8px; text-decoration:none; font-weight:600; margin-top:16px; }
+		small { opacity:.7; }
+	</style>
+	<script>
+		// Optional: redirect back into app custom scheme if desired.
+		window.location.href = 'c3creatorclub://membership/cancel';
+	</script>
+</head>
+<body>
+	<div class="card">
+		<h1>Subscription Not Completed</h1>
+		<p>You canceled the checkout or it timed out. No charges were made.</p>
+		<p>You can safely close this page or try again later.</p>
+		<a class="button" href="/">Return to App</a>
+		<p><small>Need help? Contact support from the app's profile section.</small></p>
+	</div>
+</body>
+</html>

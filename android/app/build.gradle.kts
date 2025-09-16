@@ -13,13 +13,14 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+    // Align Java & Kotlin targets to 17 (required by newer AGP and to avoid mixed 17/21 targets from transitive libs)
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
@@ -40,8 +41,19 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // Explicitly declare JDK toolchain to stabilize builds on CI / different dev machines
+    kotlin {
+        jvmToolchain(17)
+    }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Required for Theme.MaterialComponents.* (PaymentSheet & AppCompat widgets)
+    implementation("com.google.android.material:material:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.7.0")
 }

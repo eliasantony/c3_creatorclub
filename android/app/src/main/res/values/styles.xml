@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is off -->
-    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+    <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode
+    setting is off -->
+    <!-- Use MaterialComponents theme so flutter_stripe PaymentSheet can attach to an
+    AppCompat/MaterialComponents base. -->
+    <style name="LaunchTheme" parent="AppTheme">
         <!-- Show a splash screen on the activity. Automatically removed when
              the Flutter engine draws its first frame -->
         <item name="android:windowBackground">@drawable/launch_background</item>
+        <!-- Ensure colorPrimary et al inherited from AppTheme so native PaymentSheet theme check
+        passes. -->
     </style>
     <!-- Theme applied to the Android Window as soon as the process has started.
          This theme determines the color of the Android Window while your
@@ -12,7 +17,24 @@
          running.
 
          This Theme is only used starting with V2 of Flutter's Android embedding. -->
-    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+    <style name="NormalTheme" parent="AppTheme">
         <item name="android:windowBackground">?android:colorBackground</item>
+        <!-- Inherit full MaterialComponents attributes for consistency. -->
+    </style>
+
+    <!-- Application-wide theme used after splash (activity uses LaunchTheme early). -->
+    <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Brand colors align with design system (Deep Indigo #3533CD, Dark Gray #363433) -->
+        <item name="colorPrimary">#3533CD</item>
+        <item name="colorPrimaryVariant">#2B29A6</item>
+        <item name="colorSecondary">#363433</item>
+        <item name="android:statusBarColor">?attr/colorPrimary</item>
+        <item name="android:navigationBarColor">?attr/colorPrimary</item>
+    </style>
+
+    <!-- Optional: Stripe PaymentSheet can use a MaterialComponents overlay if needed -->
+    <style name="StripePaymentSheet" parent="Theme.MaterialComponents.DayNight.BottomSheetDialog">
+        <item name="colorPrimary">#3533CD</item>
+        <item name="colorSecondary">#363433</item>
     </style>
 </resources>

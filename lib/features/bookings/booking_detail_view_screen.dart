@@ -83,6 +83,7 @@ class BookingDetailViewScreen extends ConsumerWidget {
                   subtitle: Text('Duration $durLabel'),
                 ),
               ),
+              const SizedBox(height: 8),
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.payments_outlined),
@@ -90,7 +91,8 @@ class BookingDetailViewScreen extends ConsumerWidget {
                   subtitle: Text('Status: ${booking.status}'),
                 ),
               ),
-              if (booking.paymentIntentId != null)
+              if (booking.paymentIntentId != null) ...[
+                const SizedBox(height: 8),
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.receipt_long_outlined),
@@ -98,7 +100,9 @@ class BookingDetailViewScreen extends ConsumerWidget {
                     subtitle: Text(booking.paymentIntentId!),
                   ),
                 ),
-              if (booking.createdAt != null)
+              ],
+              if (booking.createdAt != null) ...[
+                const SizedBox(height: 8),
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.calendar_today_outlined),
@@ -106,6 +110,7 @@ class BookingDetailViewScreen extends ConsumerWidget {
                     subtitle: Text(booking.createdAt!.toLocal().toString()),
                   ),
                 ),
+              ],
               const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: () => context.pop(),

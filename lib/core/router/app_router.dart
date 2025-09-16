@@ -14,10 +14,13 @@ import '../../data/models/group.dart';
 import '../../data/models/user_profile.dart';
 // membership imported below already
 import '../../features/membership/membership_screen.dart';
+import '../../features/membership/membership_processing_screen.dart';
+import '../../features/membership/membership_success_screen.dart';
 import '../../features/bookings/booking_detail_screen.dart';
 import '../../features/bookings/booking_success_screen.dart';
 import '../../features/bookings/booking_detail_view_screen.dart';
 import '../../features/bookings/my_bookings_screen.dart';
+import '../../features/bookings/booking_processing_screen.dart';
 
 final GlobalKey<NavigatorState> _rootKey = GlobalKey<NavigatorState>(
   debugLabel: 'root',
@@ -39,6 +42,16 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/rooms',
     refreshListenable: _AuthRefresh(ref),
     redirect: (context, state) {
+      // Normalize custom-scheme deep links before any auth/profile redirect logic.
+      // Some Android intents (and our hosted success page script) may deliver a full
+      // URI like c3creatorclub://membership/success which GoRouter sees as an
+      // unknown location (throwing GoException). Translate early.
+      final fullUri = state.uri;
+      if (fullUri.scheme == 'c3creatorclub' && fullUri.host == 'membership') {
+        final seg = fullUri.path.replaceAll(RegExp('^/'), '');
+        if (seg == 'success') return '/membership/success';
+        if (seg == 'cancel' || seg.isEmpty) return '/membership';
+      }
       final authAsync = r.read(authStateChangesProvider);
       final profileAsync = r.read(userProfileProvider);
       final isSignedIn = authAsync.asData?.value != null;
@@ -74,6 +87,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: <RouteBase>[
+      // Explicit root redirect: some platform resumes / cold starts may request '/'
+      // (e.g., system relaunch without an explicit deep link). Provide a safe
+      // redirect instead of throwing GoException: no routes for location '/'.
+      GoRoute(
+        path: '/',
+        redirect: (context, state) => '/rooms',
+        builder: (context, state) => const SizedBox.shrink(),
+      ),
       // Root path is not used as an entry since we set initialLocation.
       // Combined auth
       GoRoute(
@@ -144,6 +165,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const MembershipScreen(),
       ),
       GoRoute(
+        path: '/membership/processing',
+        name: 'membership_processing',
+        builder: (context, state) => const MembershipProcessingScreen(),
+      ),
+      GoRoute(
+        path: '/membership/success',
+        name: 'membership_success',
+        builder: (context, state) => const MembershipSuccessScreen(),
+      ),
+      GoRoute(
         path: '/booking/confirm',
         name: 'booking_confirm',
         builder: (context, state) {
@@ -166,6 +197,17 @@ final routerProvider = Provider<GoRouter>((ref) {
             return BookingSuccessScreen(args: extra);
           }
           return const Scaffold(body: Center(child: Text('Booking complete')));
+        },
+      ),
+      GoRoute(
+        path: '/booking/processing',
+        name: 'booking_processing',
+        builder: (context, state) {
+          final extra = state.extra;
+          if (extra is BookingProcessingArgs) {
+            return BookingProcessingScreen(args: extra);
+          }
+          return const Scaffold(body: Center(child: Text('Processing...')));
         },
       ),
       GoRoute(
@@ -194,6 +236,6 @@ bool _isProfileIncomplete(UserProfile profile) {
   if (profile.phone == null || profile.phone!.isEmpty) return true;
   if (profile.profession == null || profile.profession!.isEmpty) return true;
   if (profile.niche == null || profile.niche!.isEmpty) return true;
-  if (profile.photoUrl == null || profile.photoUrl!.isEmpty) return true;
+  // Avatar now optional: do not block onboarding completion on photoUrl
   return false;
 }
