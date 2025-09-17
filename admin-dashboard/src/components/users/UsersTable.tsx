@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { collection, getDocs, limit, orderBy, query, startAfter, where } from 'firebase/firestore'
 import { getDb, isFirebaseConfigured } from '@/lib/firebase'
@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { normalizeUser } from './utils'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { useInfiniteQuery } from '@tanstack/react-query'
 
 export type UserRow = {
   id: string
@@ -15,10 +16,7 @@ export type UserRow = {
   tier?: string
 }
 
-type PageResult = {
-  rows: UserRow[]
-  lastCursor: unknown | null
-}
+type PageResult = { rows: UserRow[]; lastCursor: unknown | null }
 
 async function fetchPage(pageSize: number, cursor: unknown | null, filters: { name?: string; email?: string; tier?: string }): Promise<PageResult> {
   const db = getDb()
@@ -42,8 +40,6 @@ async function fetchPage(pageSize: number, cursor: unknown | null, filters: { na
 
 export function UsersTable() {
   const [filters, setFilters] = useState<{ name?: string; email?: string; tier?: string }>({})
-  const [page, setPage] = useState<PageResult>({ rows: [], lastCursor: null })
-  const [loading, setLoading] = useState(false)
   const router = useRouter()
   const configured = isFirebaseConfigured()
 
@@ -56,28 +52,21 @@ export function UsersTable() {
     []
   )
 
-  const table = useReactTable({ data: page.rows, columns, getCoreRowModel: getCoreRowModel() })
+  const queryKey = useMemo(() => ['users', filters.name ?? '', filters.email ?? '', filters.tier ?? ''], [filters])
+  const q = useInfiniteQuery({
+    queryKey,
+    queryFn: ({ pageParam }) => fetchPage(20, (pageParam as unknown) ?? null, filters),
+    initialPageParam: null as unknown,
+    getNextPageParam: (last) => last.lastCursor,
+  })
 
-  const load = async (reset = false) => {
-    setLoading(true)
-    try {
-      const res = await fetchPage(20, reset ? null : page.lastCursor, filters)
-      setPage((prev) => ({ rows: reset ? res.rows : [...prev.rows, ...res.rows], lastCursor: res.lastCursor }))
-    } finally {
-      setLoading(false)
-    }
-  }
+  const data = useMemo(() => (q.data ? q.data.pages.flatMap((p) => p.rows) : []), [q.data])
+  const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() })
 
-  useEffect(() => {
-    // initial load
-    load(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const onApplyFilters = async (e: React.FormEvent) => {
+  const onApplyFilters = (e: React.FormEvent) => {
     e.preventDefault()
-    setPage({ rows: [], lastCursor: null })
-    await load(true)
+    // Changing the queryKey via filters triggers cache separation; just refetch.
+    q.refetch({ throwOnError: false })
   }
 
   if (!configured) {
@@ -120,7 +109,7 @@ export function UsersTable() {
                 ))}
               </tr>
             ))}
-            {!loading && table.getRowModel().rows.length === 0 && (
+            {!q.isLoading && table.getRowModel().rows.length === 0 && (
               <tr>
                 <td className="px-3 py-8 text-center text-gray-500" colSpan={columns.length}>No users found</td>
               </tr>
@@ -129,8 +118,8 @@ export function UsersTable() {
         </table>
       </div>
       <div className="flex justify-center">
-        <Button onClick={() => load(false)} disabled={loading || !page.lastCursor}>
-          {loading ? 'Loading…' : page.lastCursor ? 'Load more' : 'No more'}
+        <Button onClick={() => q.fetchNextPage()} disabled={q.isFetchingNextPage || !q.hasNextPage}>
+          {q.isFetchingNextPage ? 'Loading…' : q.hasNextPage ? 'Load more' : 'No more'}
         </Button>
       </div>
     </div>
