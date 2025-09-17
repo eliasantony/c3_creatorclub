@@ -1,5 +1,4 @@
-type Props = { params: { id: string } }
-
-export default function UserDetailsPage({ params }: Props) {
-  return <div>User details for {params.id}</div>
+export default async function UserDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  return <div>User details for {id}</div>
 }
