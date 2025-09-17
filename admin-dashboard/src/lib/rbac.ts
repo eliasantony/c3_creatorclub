@@ -1,9 +1,9 @@
-import { auth } from './firebase'
+import { getAuthInstance } from './firebase'
 
 export type Role = 'superadmin' | 'moderator' | 'finance' | 'viewer'
 
 export async function getCurrentRole(): Promise<Role> {
-  const user = auth.currentUser
+  const user = getAuthInstance().currentUser
   if (!user) return 'viewer'
   const token = await user.getIdTokenResult(true)
   const claims = token.claims as Record<string, unknown>

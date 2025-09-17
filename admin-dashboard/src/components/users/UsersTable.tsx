@@ -2,9 +2,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { collection, getDocs, limit, orderBy, query, startAfter, where } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { getDb, isFirebaseConfigured } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
 import { normalizeUser } from './utils'
+import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
 
 export type UserRow = {
   id: string
@@ -19,6 +21,7 @@ type PageResult = {
 }
 
 async function fetchPage(pageSize: number, cursor: unknown | null, filters: { name?: string; email?: string; tier?: string }): Promise<PageResult> {
+  const db = getDb()
   let q: any = query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(pageSize))
 
   const clauses: any[] = []
@@ -42,6 +45,7 @@ export function UsersTable() {
   const [page, setPage] = useState<PageResult>({ rows: [], lastCursor: null })
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const configured = isFirebaseConfigured()
 
   const columns = useMemo<ColumnDef<UserRow>[]>(
     () => [
@@ -76,18 +80,22 @@ export function UsersTable() {
     await load(true)
   }
 
+  if (!configured) {
+    return <div className="text-sm text-red-600">Firebase environment variables are not configured. Fill in .env.local to load users.</div>
+  }
+
   return (
     <div className="space-y-4">
       <form className="flex gap-2" onSubmit={onApplyFilters}>
-        <input placeholder="Name" className="border rounded px-2 py-1" value={filters.name ?? ''} onChange={(e) => setFilters((f) => ({ ...f, name: e.target.value || undefined }))} />
-        <input placeholder="Email" className="border rounded px-2 py-1" value={filters.email ?? ''} onChange={(e) => setFilters((f) => ({ ...f, email: e.target.value || undefined }))} />
+        <Input placeholder="Name" value={filters.name ?? ''} onChange={(e) => setFilters((f) => ({ ...f, name: e.target.value || undefined }))} />
+        <Input placeholder="Email" value={filters.email ?? ''} onChange={(e) => setFilters((f) => ({ ...f, email: e.target.value || undefined }))} />
         <select className="border rounded px-2 py-1" value={filters.tier ?? ''} onChange={(e) => setFilters((f) => ({ ...f, tier: e.target.value || undefined }))}>
           <option value="">All tiers</option>
           <option value="free">Free</option>
           <option value="pro">Pro</option>
           <option value="enterprise">Enterprise</option>
         </select>
-        <button type="submit" className="px-3 py-1 bg-indigo-700 text-white rounded">Apply</button>
+        <Button type="submit" variant="primary">Apply</Button>
       </form>
       <div className="border rounded overflow-x-auto">
         <table className="w-full text-sm">
@@ -121,9 +129,9 @@ export function UsersTable() {
         </table>
       </div>
       <div className="flex justify-center">
-        <button onClick={() => load(false)} disabled={loading || !page.lastCursor} className="px-3 py-2 border rounded">
+        <Button onClick={() => load(false)} disabled={loading || !page.lastCursor}>
           {loading ? 'Loading…' : page.lastCursor ? 'Load more' : 'No more'}
-        </button>
+        </Button>
       </div>
     </div>
   )
