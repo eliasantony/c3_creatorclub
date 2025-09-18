@@ -17,7 +17,9 @@ Next.js 15 + TypeScript admin app.
 ## Tests
 - Unit: `npm run test`
 - E2E: `npm run test:e2e`
+   - Optional envs to enable login flow: `PW_ADMIN_EMAIL`, `PW_ADMIN_PASSWORD`, `PW_TEST_USER_ID`
 
 ## Notes
 - Destructive actions must use callable Cloud Functions via `call<I,O>(name)` from `src/lib/firebase.ts` (no direct writes to sensitive collections).
 - RBAC via Firebase custom claims; see `src/lib/rbac.ts`.
+ - Auth: Email/password login at `/login`. Unauthenticated users are redirected from `/admin/*` to `/login`.
