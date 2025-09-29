@@ -70,7 +70,10 @@ class AuthRepository {
       niche: niche,
       photoUrl: photoUrl,
     );
-    await _firestore.collection('users').doc(uid).set(profile.toJson());
+    await _firestore.collection('users').doc(uid).set({
+      ...profile.toJson(),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
     return cred;
   }
 

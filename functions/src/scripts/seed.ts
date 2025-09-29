@@ -6,13 +6,20 @@
     npx ts-node src/scripts/seed.ts
 */
 import { initializeApp, cert, ServiceAccount } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import fs from 'node:fs';
 import path from 'node:path';
 
 // Prefer explicit service account for production seeding
 function initAdmin() {
-  const saPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.SERVICE_ACCOUNT_PATH;
+  let saPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.SERVICE_ACCOUNT_PATH;
+  // Fallback: local serviceAccount.json in functions/ if present
+  if (!saPath) {
+    const local = path.resolve('serviceAccount.json');
+    if (fs.existsSync(local)) {
+      saPath = local;
+    }
+  }
   if (saPath && fs.existsSync(saPath)) {
     const abs = path.resolve(saPath);
     const svc = JSON.parse(fs.readFileSync(abs, 'utf8')) as ServiceAccount & { project_id?: string };
@@ -132,9 +139,50 @@ async function seedRooms() {
   ];
 
   for (const r of rooms) {
-    await db.collection('rooms').doc(r.id).set(r);
+    await db.collection('rooms').doc(r.id).set({
+      ...r,
+      createdAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
   }
   console.log('Seeded rooms');
+}
+
+async function seedUsers() {
+  const users = [
+    { id: 'demo-user-1', name: 'Alice Demo', email: 'alice@example.com', tier: 'free' },
+    { id: 'demo-user-2', name: 'Bob Demo', email: 'bob@example.com', tier: 'premium' },
+  ];
+  for (const u of users) {
+    await db.collection('users').doc(u.id).set({
+      name: u.name,
+      email: u.email,
+      tier: u.tier,
+      createdAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  }
+  console.log('Seeded users');
+}
+
+async function seedBookings() {
+  const now = new Date();
+  const hoursFromNow = (h: number) => new Date(now.getTime() + h * 3600_000);
+  const bookings = [
+    { userId: 'demo-user-1', roomId: 'sample1', startAt: hoursFromNow(-72), endAt: hoursFromNow(-70), status: 'confirmed' },
+    { userId: 'demo-user-2', roomId: 'sample2', startAt: hoursFromNow(-2), endAt: hoursFromNow(1), status: 'confirmed' },
+    { userId: 'demo-user-2', roomId: 'sample3', startAt: hoursFromNow(24), endAt: hoursFromNow(26), status: 'confirmed' },
+  ];
+  for (const b of bookings) {
+    await db.collection('bookings').add({
+      userId: b.userId,
+      roomId: b.roomId,
+      workspaceId: b.roomId, // compatibility for admin mapping
+      startAt: Timestamp.fromDate(b.startAt),
+      endAt: Timestamp.fromDate(b.endAt),
+      status: b.status,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  }
+  console.log('Seeded bookings');
 }
 
 async function main() {
@@ -145,6 +193,8 @@ async function main() {
   }
   await seedGroups();
   await seedRooms();
+  await seedUsers();
+  await seedBookings();
 }
 
 main().catch((e) => {

@@ -14,6 +14,8 @@ Scripts:
 Functions:
 
 - `ping`: HTTP health check.
+- `listUsers`: callable (moderator+) with q/tier filters and pagination.
+- `getKpis`: callable (finance+) returning totals for users/premium/bookings.
 
 Run seed against production
 
@@ -33,4 +35,5 @@ Run seed against emulator
 
 Deploy:
 
+- `firebase deploy --only firestore:indexes`
 - `npm run build && npm run deploy`

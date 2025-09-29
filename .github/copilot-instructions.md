@@ -1,6 +1,19 @@
 # Copilot Instructions for c3_creatorclub
 
-Purpose: Enable AI coding agents to be productive immediately in this Flutter + Firebase app. Keep changes small, append-only changelog, and follow the PRD/design system.
+Purpose: Enable AI coding agents to be productive immediately in this repository, which contains both a Flutter mobile app and a Next.js admin dashboard. Keep changes small, append-only changelogs, and follow the relevant PRDs/design guidelines.
+
+---
+
+## Project Structure
+
+- `/lib` → Flutter app code
+- `/functions` → Firebase Cloud Functions (TypeScript). Shared backend for both Flutter app and admin dashboard. **All sensitive operations must go through these functions, never direct writes.**
+- `/admin-dashboard` → Next.js (TypeScript) admin dashboard
+- `/docs` → design guidelines, PRDs, shared docs
+
+---
+
+## Flutter App (mobile)
 
 ## Big picture
 
@@ -53,20 +66,45 @@ Purpose: Enable AI coding agents to be productive immediately in this Flutter + 
 - Stripe payments (flutter_stripe) with Cloud Functions for webhooks and memberships.
 - Chat via Firestore subcollections and a chat UI package.
 
-## Guardrails for agents
+---
 
-- Respect PRD in `c3 - PRD.md` and design tokens in `c3 - DesignGuidelines.md`.
-- Keep edits minimal and consistent with feature-first layout.
-- Never break the build; run analyze/tests after changes.
-- Always append a new section to `changelog.md` describing the change.
+## Admin Dashboard (`/admin-dashboard`)
 
-## Known gotchas
+- **App type:** Next.js 15 + TypeScript, data-intensive web app for admins only.
+- **Structure:** feature-first under `/src` (`components/`, `features/`, `routes/`).
+- **UI libraries:** shadcn/ui for components, TanStack Table/Query for tables & data fetching, React Hook Form + Zod for forms, Recharts for analytics.
+- **Auth:** Firebase Auth with email/password login. Use Firebase Custom Claims for RBAC (`superadmin`, `moderator`, `finance`).
+- **Data access:** Use Firestore SDK for reads. Use **Cloud Functions in `/functions`** for all destructive actions (refunds, bans, deletes, announcements). Do not put secrets in client.
+- **Stripe:** Interact only via Cloud Functions (never from client).
+- **Analytics:** Aggregated by Functions, dashboard only renders.
+- **Tests:** Use Vitest for unit tests and Playwright for basic E2E smoke tests.
+- **Design system:** Use the same color palette and typography as the Flutter app (Deep Indigo `#3533CD`, Dark Gray `#363433`, White `#FFFFFF`, font `Garet` where possible).
 
-- Version alignment: Firebase packages aligned around `firebase_core ^3.15.2` currently. Update carefully.
-- DropdownButtonFormField: prefer `initialValue` over `value` (deprecation).
-- Router output sometimes hides in tests; use `flutter test -r compact --concurrency=1`.
+---
+
+## Changelogs
+
+- **Flutter app:** append-only to root `changelog.md`.
+- **Admin dashboard:** maintain a separate `admin-dashboard/changelog.md`.
+- Each commit must update the relevant changelog file, never overwrite.
+
+---
+
+## Guardrails (global)
+
+- Always respect the appropriate PRD:  
+  - `c3 - PRD.md` for the Flutter app  
+  - `admin-dashboard/docs/PRD.md` for the admin dashboard
+- Keep edits minimal and consistent with the feature-first layout of each project.
+- Never break the build; always run tests/lints before committing.
+- Always add confirmation dialogs for destructive actions in the dashboard.
+- Paginate Firestore queries with `limit` + `startAfter`.
+- All admin actions should log to `admin_audit_logs`.
+
+---
 
 ## References
 
-- Product Requirements: `c3 - PRD.md`
+- Mobile PRD: `c3 - PRD.md`
+- Admin PRD: `admin-dashboard/docs/PRD.md`
 - Design Guidelines: `c3 - DesignGuidelines.md`
