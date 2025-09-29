@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { ReactQueryProvider } from '@/components/providers/ReactQueryProvider'
 import { AuthProvider } from '@/components/providers/AuthProvider'
+import { ThemeProvider } from '@/components/providers/ThemeProvider'
+import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
   title: 'Creator Club Admin',
@@ -10,12 +12,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full">
-      <body className="min-h-full bg-white text-gray-900">
+    <html lang="en" className="h-full" suppressHydrationWarning>
+      <body className="min-h-full bg-bg text-fg">
         <ReactQueryProvider>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              {children}
+              <Toaster position="top-right" richColors />
+            </AuthProvider>
+          </ThemeProvider>
         </ReactQueryProvider>
       </body>
     </html>

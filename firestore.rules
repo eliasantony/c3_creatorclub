@@ -2,7 +2,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() { return request.auth != null; }
-    function isAdmin() { return isSignedIn() && request.auth.token.admin == true; }
+    // Treat either legacy boolean admin claim OR role claim (superadmin/moderator) as admin privileges
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.admin == true ||
+        (request.auth.token.role in ['superadmin', 'moderator'])
+      );
+    }
     function isSelf(userId) { return isSignedIn() && request.auth.uid == userId; }
     function userDoc(uid) { return get(/databases/$(database)/documents/users/$(uid)); }
     function isPremium() {
@@ -14,6 +20,7 @@ service cloud.firestore {
       allow read: if true; // allow list and get for anyone (unauth OK)
       allow create, update, delete: if isAdmin();
     }
+
 
     // Users: each user can read/write their own profile document
     match /users/{userId} {
@@ -39,7 +46,7 @@ service cloud.firestore {
     // - Non-premium must NOT create confirmed without paymentIntentId.
     // - Webhook/server (admin context) may create any.
     match /bookings/{bookingId} {
-      allow read: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid && (
         // Premium direct confirm
         (isPremium() && request.resource.data.status == 'confirmed') ||

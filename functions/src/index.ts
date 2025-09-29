@@ -2,9 +2,14 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import Stripe from 'stripe';
 import { defineSecret } from 'firebase-functions/params';
+export { listUsers } from './admin/listUsers'
+export { getKpis } from './admin/getKpis'
+export { listWorkspaces } from './admin/listWorkspaces'
+export { listBookings } from './admin/listBookings'
+export { listReports } from './admin/listReports'
 
-admin.initializeApp();
-const db = admin.firestore();
+const app = admin.apps.length ? admin.app() : admin.initializeApp();
+const db = app.firestore();
 // Secure Stripe secret via Firebase Functions secrets. Set with:
 //   firebase functions:secrets:set STRIPE_SECRET_KEY
 const stripeSecret = defineSecret('STRIPE_SECRET_KEY');

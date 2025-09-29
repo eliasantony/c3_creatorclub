@@ -1,13 +1,14 @@
 "use client"
 import { useMemo, useState } from 'react'
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { collection, getDocs, limit, orderBy, query, startAfter, where } from 'firebase/firestore'
-import { getDb, isFirebaseConfigured } from '@/lib/firebase'
+import { isFirebaseConfigured, call } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
 import { normalizeUser } from './utils'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { useInfiniteQuery } from '@tanstack/react-query'
+import { FunctionNames, type ListUsersInput, type ListUsersOutput } from '@c3/contracts'
+import { TableSkeleton } from '@/components/ui/LoadingState'
 
 export type UserRow = {
   id: string
@@ -16,26 +17,18 @@ export type UserRow = {
   tier?: string
 }
 
-type PageResult = { rows: UserRow[]; lastCursor: unknown | null }
+type PageResult = { rows: UserRow[]; lastCursor: string | undefined }
 
-async function fetchPage(pageSize: number, cursor: unknown | null, filters: { name?: string; email?: string; tier?: string }): Promise<PageResult> {
-  const db = getDb()
-  let q: any = query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(pageSize))
-
-  const clauses: any[] = []
-  if (filters.name) clauses.push(where('name', '>=', filters.name), where('name', '<=', filters.name + '\uf8ff'))
-  if (filters.email) clauses.push(where('email', '>=', filters.email), where('email', '<=', filters.email + '\uf8ff'))
-  if (filters.tier) clauses.push(where('tier', '==', filters.tier))
-  if (clauses.length) {
-    // Note: Firestore requires appropriate composite indexes for combined queries.
-    q = query(collection(db, 'users'), ...clauses, orderBy('createdAt', 'desc'), limit(pageSize))
+async function fetchPage(pageSize: number, cursor: string | undefined, filters: { name?: string; email?: string; tier?: string }): Promise<PageResult> {
+  const input: ListUsersInput = {
+    q: filters.name || filters.email || undefined, // simple combined q for now
+    tier: filters.tier as any,
+    limit: pageSize,
+    cursor,
   }
-  if (cursor) q = query(q, startAfter(cursor))
-
-  const snap = await getDocs(q)
-  const rows: UserRow[] = snap.docs.map((d) => normalizeUser(d.data(), d.id))
-  const last = snap.docs[snap.docs.length - 1]
-  return { rows, lastCursor: last ?? null }
+  const res = await call<ListUsersInput, ListUsersOutput>(FunctionNames.listUsers)(input)
+  const rows: UserRow[] = res.items.map(u => ({ id: u.id, name: u.name, email: u.email, tier: u.tier }))
+  return { rows, lastCursor: res.nextCursor }
 }
 
 export function UsersTable() {
@@ -55,9 +48,9 @@ export function UsersTable() {
   const queryKey = useMemo(() => ['users', filters.name ?? '', filters.email ?? '', filters.tier ?? ''], [filters])
   const q = useInfiniteQuery({
     queryKey,
-    queryFn: ({ pageParam }) => fetchPage(20, (pageParam as unknown) ?? null, filters),
-    initialPageParam: null as unknown,
-    getNextPageParam: (last) => last.lastCursor,
+    queryFn: ({ pageParam }) => fetchPage(20, (pageParam as string | undefined) ?? undefined, filters),
+    initialPageParam: undefined as unknown as string | undefined,
+    getNextPageParam: (last) => last.lastCursor ?? undefined,
   })
 
   const data = useMemo(() => (q.data ? q.data.pages.flatMap((p) => p.rows) : []), [q.data])
@@ -75,24 +68,26 @@ export function UsersTable() {
 
   return (
     <div className="space-y-4">
+      {q.isError && (
+        <div className="text-sm text-red-600">Failed to load users. Please ensure Firebase env is set and Functions are available. {(q.error as any)?.message ?? ''}</div>
+      )}
       <form className="flex gap-2" onSubmit={onApplyFilters}>
         <Input placeholder="Name" value={filters.name ?? ''} onChange={(e) => setFilters((f) => ({ ...f, name: e.target.value || undefined }))} />
         <Input placeholder="Email" value={filters.email ?? ''} onChange={(e) => setFilters((f) => ({ ...f, email: e.target.value || undefined }))} />
         <select className="border rounded px-2 py-1" value={filters.tier ?? ''} onChange={(e) => setFilters((f) => ({ ...f, tier: e.target.value || undefined }))}>
           <option value="">All tiers</option>
           <option value="free">Free</option>
-          <option value="pro">Pro</option>
-          <option value="enterprise">Enterprise</option>
+          <option value="premium">Premium</option>
         </select>
         <Button type="submit" variant="primary">Apply</Button>
       </form>
-      <div className="border rounded overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-left">
+      <div className="card overflow-x-auto">
+        <table className="w-full text-sm table-zebra table-head">
+          <thead className="text-left">
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id}>
                 {hg.headers.map((h) => (
-                  <th key={h.id} className="px-3 py-2 font-medium">
+                  <th key={h.id} className="px-3 py-2">
                     {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                   </th>
                 ))}
@@ -100,10 +95,17 @@ export function UsersTable() {
             ))}
           </thead>
           <tbody>
+            {q.isLoading && (
+              <tr>
+                <td colSpan={columns.length} className="px-3 py-4">
+                  <TableSkeleton rows={6} cols={3} />
+                </td>
+              </tr>
+            )}
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/admin/users/${row.original.id}`)}>
+              <tr key={row.id} className="cursor-pointer transition hover:bg-[color:var(--surface-hover)]" onClick={() => router.push(`/admin/users/${row.original.id}`)}>
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-3 py-2 border-t">
+                  <td key={cell.id} className="px-3 py-2 border-t border-border">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
@@ -111,7 +113,7 @@ export function UsersTable() {
             ))}
             {!q.isLoading && table.getRowModel().rows.length === 0 && (
               <tr>
-                <td className="px-3 py-8 text-center text-gray-500" colSpan={columns.length}>No users found</td>
+                <td className="px-3 py-8 text-center text-[color:var(--fg-muted)]" colSpan={columns.length}>No users found</td>
               </tr>
             )}
           </tbody>

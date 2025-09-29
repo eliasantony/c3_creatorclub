@@ -1,1 +1,1 @@
-// Vitest setup placeholder
+import '@testing-library/jest-dom/vitest'

@@ -2,10 +2,71 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 :root {
-  --font-garet: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-sans: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-garet: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; /* kept name for compatibility */
+
+  /* Accent + brand */
+  --brand-primary: #3533CD; /* legacy brand */
+  --accent: #6366F1; /* electric indigo */
+
+  /* Light palette */
+  --bg: #F8F9FB;
+  --bg-alt: #FFFFFF;
+  --surface: #FFFFFF;
+  --surface-alt: #F1F2F5;
+  --surface-hover: #F2F3F6;
+  --border: #E2E4E9;
+  --fg: #111318;
+  --fg-muted: #6B7280;
+  --ring: var(--accent);
 }
 
-body {
-  font-family: var(--font-garet);
+.dark {
+  --bg: #121212;
+  --bg-alt: #18181B;
+  --surface: #1E1E22;
+  --surface-alt: #232329;
+  --surface-hover: #26262B;
+  --border: #2A2A32;
+  --fg: #F4F5F7;
+  --fg-muted: #A1A1AA;
+  --ring: var(--accent);
 }
+
+html, body { height: 100%; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Cards / elevated surfaces */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 2px 4px rgba(0,0,0,0.06);
+}
+
+/* Zebra tables */
+.table-zebra tbody tr:nth-child(odd) { background: var(--surface-alt); }
+.dark .table-zebra tbody tr:nth-child(odd) { background: #1A1A1E; }
+.table-zebra tbody tr:hover { background: var(--surface-hover); }
+
+/* Table Head */
+.table-head th { background: var(--surface-alt); color: var(--fg-muted); font-weight: 600; }
+.dark .table-head th { background: #1A1A1E; color: var(--fg-muted); }
+
+/* Field labels */
+.field-label { color: var(--fg-muted); font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 500; }
+.dark .field-label { color: var(--fg-muted); }
+
+/* Scrollbar subtle styling (optional) */
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }

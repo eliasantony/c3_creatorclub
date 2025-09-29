@@ -10,12 +10,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        indigo: {
-          700: '#3533CD',
+        brand: {
+          primary: 'var(--brand-primary)',
         },
-        gray: {
-          800: '#363433',
+        neutral: {
+          0: 'var(--neutral-0)',
+          900: 'var(--neutral-900)',
         },
+        bg: 'var(--bg)',
+        fg: 'var(--fg)',
+        muted: 'var(--muted)',
+        border: 'var(--border)'
       },
       fontFamily: {
         garet: ['var(--font-garet)', 'sans-serif'],
